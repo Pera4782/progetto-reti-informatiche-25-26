@@ -3,10 +3,11 @@
 
 
 int nextCardId = 0;
+int nextPortaUtente = LAVAGNAPORT + 1;
 lavagna_t lavagna;
 
 
-int init_lavagna(){
+void init_lavagna(){
 
     lavagna.id = 0;
     for(int i = 0; i < NUMCOLONNE; ++i) lavagna.colonne[i] = NULL;

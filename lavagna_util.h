@@ -31,10 +31,11 @@ typedef struct lavagna lavagna_t;
 
 
 extern int nextCardId;
+extern int nextPortaUtente;
 extern lavagna_t lavagna;
 
 
-int init_lavagna();
+void init_lavagna();
 card_t* create_card(const char*, unsigned short, int);
 void stampa_card(card_t);
 void insert_card(card_t*);
