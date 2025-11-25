@@ -1,5 +1,6 @@
 
-#include "lavagna_util.h"
+#include "lavagna_functions.h"
+#include "strutture.h"
 
 
 int nextCardId = 0;
@@ -13,7 +14,7 @@ void init_lavagna(){
     for(int i = 0; i < NUMCOLONNE; ++i) lavagna.colonne[i] = NULL;
 }
 
-card_t* create_card(const char* testo, unsigned short porta, int timestamp){
+card_t* create_card(const char* testo){
 
     card_t* card = (card_t*) malloc(sizeof(card_t));
     if(card == NULL){
@@ -26,8 +27,11 @@ card_t* create_card(const char* testo, unsigned short porta, int timestamp){
 
     card->nextCard = NULL;
     card->colonna = TODO;
-    card->portaUtente = porta;
-    card->ultimaModifica = timestamp;
+    card->portaUtente = 0;
+
+    time_t rawtime;
+    time(&rawtime);
+    card->ultimaModifica = rawtime;
 
     card->testoAttivita = (char*) malloc((strlen(testo) + 1) * sizeof(char));
 

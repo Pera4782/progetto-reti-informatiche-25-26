@@ -1,6 +1,6 @@
 
 
-#include "lavagna_util.h"
+#include "lavagna_functions.h"
 
 
 
@@ -8,8 +8,9 @@ int main(){
     
     init_lavagna();
 
-    card_t* card1 = create_card("sono card1", 10u, 0);
-    card_t* card2 = create_card("sono card2", 11u, 1);
+    card_t* card1 = create_card("sono card1");
+    sleep(5);
+    card_t* card2 = create_card("sono card2");
 
     insert_card(card1);
     insert_card(card2);
