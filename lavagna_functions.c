@@ -62,20 +62,50 @@ card_t* create_card(const char* testo){
 
 void insert_card(card_t* card){
 
+    if(card == NULL) return;
+
     card_t* temp = lavagna.colonne[card->colonna];
     lavagna.colonne[card->colonna] = card;
-    lavagna.colonne[card->colonna]->nextCard = temp;
+    lavagna.colonne[card->colonna]->nextCard = temp; //inserimento in testa nella lista corretta
 }
+
+/**
+ * @brief calcolo di quante cifre ha un numero
+ * @param n numero di cui si vuole calcolare il numero di cifre
+ * @return numero di cifre
+ */
+static int quante_cifre(int n){
+
+    if(n == 0) return 1;
+    
+    int cifre = 0;
+    while(n){
+        cifre ++;
+        n /= 10;
+    }
+    return cifre;
+}
+
 
 /**
  * @brief stampa la prima riga di una card contenente l'id
  * @param id id della card da stampare
  */
-static void stampa_card_header(int id){ //TODO fare sta funzione a modo
-    if(id == -1)  printf("                      ");
-    else if(id < 10) printf("          %d           ", id);
-    else if(id < 100) printf("          %d          ", id);
-    else printf("         %d          ", id);
+static void stampa_card_header(int id){
+    if(id == -1)  {
+        printf("                      ");
+        return;
+    }
+
+    int cifre = quante_cifre(id);
+    const int LEFTSPACES = (RIGALENGTH - cifre) / 2;    
+    const int RIGHTSPACES = (cifre % 2 == 0)? LEFTSPACES : LEFTSPACES + 1; // calcolo degli spazi a sinistra e destra per "centrare" l'id della card
+    
+    printf(" ");
+    for(int i = 0; i < LEFTSPACES; ++i) printf(" ");
+    printf("%d", id);
+    for(int i = 0; i < RIGHTSPACES; ++i) printf(" "); //stampa degli spazi calcolati prima
+    printf(" ");
 }
 
 /**
@@ -87,13 +117,17 @@ static void stampa_card_header(int id){ //TODO fare sta funzione a modo
 static char* get_riga_card(card_t* card, int index){
 
     char* line = (char*) malloc (21);
+    if(line == NULL){
+        printf("\n\n IMPOSSIBILE DISEGNARE LA LAVAGNA\n\n");
+        return NULL;
+    }
 
     if(card == NULL){
         strcpy(line, "                    \0");
         return line;
     }
 
-    for(int i = 0; i < RIGALENGTH; ++i) line[i] = card->testoAttivita[i + index];
+    for(int i = 0; i < RIGALENGTH; ++i) line[i] = card->testoAttivita[i + index]; //riempio line con i 20 caratteri del testo della card a partire da index
     line[RIGALENGTH] = '\0';
     return line;
 }
@@ -133,6 +167,13 @@ void show_lavagna(){
             char* line1 = get_riga_card(cardTODO, RIGALENGTH * i);
             char* line2 = get_riga_card(cardDOING, RIGALENGTH * i);
             char* line3 = get_riga_card(cardDONE, RIGALENGTH * i);
+
+            if(line1 == NULL || line2 == NULL || line3 == NULL){
+                free(line1);
+                free(line2);
+                free(line3);
+                return;
+            }
 
             printf("| %s | %s | %s |\n", line1, line2, line3);
 
