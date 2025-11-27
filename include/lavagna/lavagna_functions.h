@@ -1,4 +1,3 @@
-
 #ifndef _LAVAGNA_FUNCTIONS_H_
 #define _LAVAGNA_FUNCTIONS_H_
 
@@ -7,9 +6,8 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
-#include "strutture.h"
+#include "../strutture.h"
 
-#define LAVAGNAPORT 5678
 #define CARDROW 5
 
 

@@ -1,0 +1,42 @@
+#ifndef _STRUTTURE_H_
+#define _STRUTTURE_H_
+
+#define NUMCOLONNE 3
+#define TEXTLEN 100
+#define LAVAGNAPORT 5678
+
+#include<netinet/in.h>
+
+enum colonna {TODO = 0, DOING = 1, DONE = 2};
+typedef enum colonna colonna_t;
+
+struct card_struct {
+
+    int id;
+    colonna_t colonna;
+    char* testoAttivita;
+    unsigned short portaUtente;
+    time_t ultimaModifica;
+
+    struct card_struct* nextCard;
+};
+typedef struct card_struct card_t;
+
+
+struct lavagna_struct {
+    
+    int id;
+    card_t* colonne[NUMCOLONNE];
+};
+typedef struct lavagna_struct lavagna_t;
+
+
+struct socket_struct {
+    char IP[10];
+    unsigned short porta;
+    struct sockaddr_in addr;
+    int socket;
+};
+typedef struct socket_struct socket_t;
+
+#endif

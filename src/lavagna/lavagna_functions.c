@@ -1,5 +1,5 @@
 
-#include "lavagna_functions.h"
+#include "../../include/lavagna/lavagna_functions.h"
 
 #define RIGALENGTH 20
 
