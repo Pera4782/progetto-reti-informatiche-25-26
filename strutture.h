@@ -1,5 +1,9 @@
 
+#ifndef _STRUTTURE_H_
+#define _STRUTTURE_H_
+
 #define NUMCOLONNE 3
+#define TEXTLEN 100
 
 enum colonna {TODO = 0, DOING = 1, DONE = 2};
 typedef enum colonna colonna_t;
@@ -23,3 +27,5 @@ struct lavagna {
     card_t* colonne[NUMCOLONNE];
 };
 typedef struct lavagna lavagna_t;
+
+#endif
