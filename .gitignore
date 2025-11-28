@@ -2,6 +2,3 @@ eseguibili
 .vscode
 testo
 *.pdf
-lavagna
-build/*.o
-build/*/.o
