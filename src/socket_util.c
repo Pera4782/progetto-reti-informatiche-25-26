@@ -9,7 +9,7 @@
 
 int create_socket(socket_t* sock, const unsigned short PORT){
 
-    strcpy(sock->IP, "127.0.0.1");
+    strcpy(sock->IP, "127.0.0.1");      //inizializzazione del socket
     sock->porta = PORT;
     sock->addr.sin_family = AF_INET;
     sock->addr.sin_port = htons(sock->porta);

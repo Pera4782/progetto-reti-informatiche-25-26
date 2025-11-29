@@ -43,5 +43,20 @@ void show_lavagna();
  */
 void destroy_lavagna();
 
+/**
+ * @brief funzione per ottenere il comando che vuole eseguire l'utente e inviare l'ACK dopo averlo ricevuto 
+ * @param sd descrittore del socket per la comunicazione con l'utente
+ * @return il comando inviato dall'utente 0xFF in caso di errore
+ */
+char recv_command(int sd);
+
+
+/**
+ * @brief funzione per rispondere alla HELLO da parte di un client
+ * @param sd descrittore del socket per la comunicazione con il client
+ * @return -1 in caso di errore 0 altrimeenti
+ */
+int hello_answer(const int);
+
 
 #endif

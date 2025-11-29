@@ -3,7 +3,7 @@
 
 #define RIGALENGTH 20
 
-int nextCardId = 0;
+int nextCardId = 0; // id incrementale delle card
 lavagna_t lavagna;
 
 
@@ -11,6 +11,7 @@ void init_lavagna(){
 
     lavagna.id = 0;
     for(int i = 0; i < NUMCOLONNE; ++i) lavagna.colonne[i] = NULL;
+    lavagna.utenti = NULL;
 }
 
 
@@ -183,5 +184,68 @@ void destroy_lavagna(){
 
     for(int i = 0; i < NUMCOLONNE; ++i) destroy_colonna(lavagna.colonne[i]);
     
+    utente_t* utenti = lavagna.utenti;
+    while(utenti){
+        utente_t* p = utenti->nextUtente;
+        free(utenti);
+        utenti = p;
+    }
+
+}
+
+
+
+char recv_command(int sd){
+    
+    char byte;
+    if(recv(sd, &byte, 1, 0) < 1){
+        perror("ERRORE NELLA RICEZIONE DEL COMANDO");
+        return 0xFF;
+    }
+
+    //invio dell'ACK al client
+    char ACK = '0';
+    if(send(sd, &ACK, 1, 0) < 1){
+        perror("ERRORE NELL'INVIO DELL'ACK");
+        return -1;
+    }
+
+    printf("ACK inviato\n");
+
+    return byte;
+}
+
+
+
+
+/**
+ * @brief funzione che inserisce nella lista degli utenti regiatrati un nuovo utente
+ * @param PORT porta dell'utente
+ */
+static void insert_utente(const unsigned short PORT){
+
+    utente_t* utente = (utente_t*) malloc(sizeof(utente_t));
+    utente->PORT = PORT;
+
+    utente_t* tmp = lavagna.utenti;
+    lavagna.utenti = utente;
+    utente->nextUtente = tmp;
+}
+
+
+int hello_answer(const int sd){
+
+
+    //ricezione della porta da parte del client
+    unsigned short PORT = 0xFFFF;
+    if(recv(sd, &PORT, 2, 0) < 2){
+        perror("ERRORE NELLA RICEZIONE DELLA PORTA");
+        return -1;
+    }
+
+    printf("ricevuta porta %d\n", PORT);
+    insert_utente(PORT);
+    return 0;
+
 }
 

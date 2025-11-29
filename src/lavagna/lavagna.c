@@ -7,22 +7,9 @@ int main(){
 
     init_lavagna();
 
-    card_t* card1 = create_card("implementazione integrazione per il pagamento");
-    card_t* card2 = create_card("diagramma delle classi UML");
-    card_t* card3 = create_card("studio dei requisiti dell'applicazione");
-    card_t* card4 = create_card("implementazione sito web servizio");
-
-    card2->colonna = DOING;
-    card3->colonna = DONE;
-
-    insert_card(card1);
-    insert_card(card2);
-    insert_card(card3);
-    insert_card(card4);
-
-    show_lavagna();
-
-    socket_t server_sock;
+    socket_t server_sock; //socket che sarà destinato ad accettare le richieste da parte dei client
+    
+    //creazione del socket del server
     if(create_socket(&server_sock, LAVAGNAPORT) < 0){
         printf("IMPOSSIBILE CREARE IL SOCKET\n");
         exit(1);
@@ -47,8 +34,23 @@ int main(){
             perror("ERRORE SULLA ACCEPT");
             exit(1);
         }
-
         printf("connessione accettata\n");
+
+        char command = recv_command(new_sd);
+        if(command == 0xFF){
+            printf("ERRORE NELLA RICEZIONE DEL COMANDO\n");
+            exit(1);
+        }
+        
+
+        switch(command){
+
+            case '0': 
+                hello_answer(new_sd);
+                break;
+            default: printf("COMANDO NON RICONOSCIUTO\n");
+        }
+
         close(new_sd);
     }
 

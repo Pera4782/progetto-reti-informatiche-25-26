@@ -23,10 +23,18 @@ struct card_struct {
 typedef struct card_struct card_t;
 
 
+struct utente_struct {
+    unsigned short PORT;
+    struct utente_struct* nextUtente;
+};
+typedef struct utente_struct utente_t;
+
 struct lavagna_struct {
     
     int id;
     card_t* colonne[NUMCOLONNE];
+    utente_t* utenti;
+
 };
 typedef struct lavagna_struct lavagna_t;
 
