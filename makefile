@@ -7,13 +7,16 @@ SRCUSRDIR = src/utente
 
 CFLAGS = -Wall -g
 
-all: directories eseguibili/lavagna eseguibili/utente 
+all: directories eseguibili/lavagna eseguibili/utente links
 
 directories:
 	mkdir -p eseguibili
 	mkdir -p $(OBJLAVDIR)
 	mkdir -p $(OBJUSRDIR)
 
+links:
+	ln -sf eseguibili/lavagna lavagna
+	ln -sf eseguibili/utente utente
 
 eseguibili/lavagna: $(OBJLAVDIR)/lavagna.o $(OBJLAVDIR)/lavagna_functions.o build/socket_util.o
 	gcc $(CFLAGS) -o eseguibili/lavagna $(OBJLAVDIR)/lavagna.o $(OBJLAVDIR)/lavagna_functions.o build/socket_util.o
