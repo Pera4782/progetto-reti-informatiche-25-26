@@ -204,7 +204,7 @@ char recv_command(int sd){
     }
 
     //invio dell'ACK al client
-    char ACK = '0';
+    char ACK = 0;
     if(send(sd, &ACK, 1, 0) < 1){
         perror("ERRORE NELL'INVIO DELL'ACK");
         return -1;
@@ -245,6 +245,7 @@ int hello_answer(const int sd){
 
     printf("ricevuta porta %d\n", PORT);
     insert_utente(PORT);
+    printf("inserito utente\n");
     return 0;
 
 }

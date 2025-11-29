@@ -4,7 +4,7 @@
 
 int hello(const int sd, const unsigned short PORT){
 
-    char msg = '0';
+    char msg = 0;
 
     if(send(sd, &msg, 1, 0) < 1){  // invio al server dell' azione che si vuole compiere (0 = HELLO)
         perror("ERRORE NELL'INVIO DELL'AZIONE");

@@ -45,7 +45,7 @@ int main(){
 
         switch(command){
 
-            case '0': 
+            case 0: 
                 hello_answer(new_sd);
                 break;
             default: printf("COMANDO NON RICONOSCIUTO\n");
