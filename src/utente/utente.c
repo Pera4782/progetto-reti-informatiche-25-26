@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
     }
 
 
-    if(hello(client_sock.socket, 5679) < 0){
+    if(create_card(client_sock.socket, 10, "sono una card", TODO) < 0){
         printf("ERRORE NELLA HELLO\n");
         exit(1);
     }

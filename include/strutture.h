@@ -34,7 +34,7 @@ struct lavagna_struct {
     int id;
     card_t* colonne[NUMCOLONNE];
     utente_t* utenti;
-
+    unsigned int numUtenti;
 };
 typedef struct lavagna_struct lavagna_t;
 

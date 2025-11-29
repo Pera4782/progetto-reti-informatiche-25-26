@@ -2,8 +2,8 @@
 #include "../../include/lavagna/lavagna_functions.h"
 
 #define RIGALENGTH 20
+#define REQUESTQUEUE 256
 
-int nextCardId = 0; // id incrementale delle card
 lavagna_t lavagna;
 
 
@@ -12,11 +12,12 @@ void init_lavagna(){
     lavagna.id = 0;
     for(int i = 0; i < NUMCOLONNE; ++i) lavagna.colonne[i] = NULL;
     lavagna.utenti = NULL;
+    lavagna.numUtenti = 0;
 }
 
 
 
-card_t* create_card(const char* testo){
+card_t* create_card(const char* testo, const int id, colonna_t colonna){
 
     if(strlen(testo) > TEXTLEN){
         printf("TESTO TROPPO LUNGO, MASSIMO 100 CARATTERI\n");
@@ -29,12 +30,11 @@ card_t* create_card(const char* testo){
         return NULL;
     }
 
-
-    card->id = nextCardId;  //inizializzazione dei parametri della card
-    nextCardId++;
+    //inizializzazione dei parametri della card
+    card->id = id;  
 
     card->nextCard = NULL;
-    card->colonna = TODO;
+    card->colonna = colonna;
     card->portaUtente = 0;
 
     time_t rawtime;
@@ -194,11 +194,31 @@ void destroy_lavagna(){
 }
 
 
+int prepare_server_socket(socket_t* sock){
+
+    //creazione del socket del server
+    if(create_socket(sock, LAVAGNAPORT) < 0){
+        printf("IMPOSSIBILE CREARE IL SOCKET\n");
+        return -1;
+    }
+
+    if(bind(sock->socket, (struct sockaddr*) &sock->addr, sizeof(struct sockaddr))){
+        perror("ERRORE NELLA BIND");
+        return -1;
+    }
+
+    if(listen(sock->socket, REQUESTQUEUE) < 0){
+        perror("ERRORE NELLA LISTEN");
+        return -1;
+    }
+
+    return 0;
+}
 
 char recv_command(int sd){
     
     char byte;
-    if(recv(sd, &byte, 1, 0) < 1){
+    if(recv(sd, &byte, 1, MSG_WAITALL) < 1){
         perror("ERRORE NELLA RICEZIONE DEL COMANDO");
         return 0xFF;
     }
@@ -237,11 +257,13 @@ int hello_answer(const int sd){
 
 
     //ricezione della porta da parte del client
-    unsigned short PORT = 0xFFFF;
-    if(recv(sd, &PORT, 2, 0) < 2){
+    unsigned short net_port;
+    if(recv(sd, &net_port, 2, MSG_WAITALL) < 2){
         perror("ERRORE NELLA RICEZIONE DELLA PORTA");
         return -1;
     }
+
+    unsigned short PORT = ntohs(net_port);
 
     printf("ricevuta porta %d\n", PORT);
     insert_utente(PORT);
@@ -250,3 +272,29 @@ int hello_answer(const int sd){
 
 }
 
+
+int create_card_answer(const int sd){
+
+    char buffer[106];
+    
+    if(recv(sd, buffer, 106, MSG_WAITALL) < 106){
+        perror("ERRORE NELLA RICEZIONE DEI DATI DELLA CARD");
+        return -1;
+    }
+
+    int net_id;
+    memcpy(&net_id, buffer, 4);
+    int id = ntohl(net_id);
+    
+    char testo[101];
+    // Copia sicura: buffer + 4 è l'inizio del testo. Assicuriamo la terminazione.
+    memcpy(testo, buffer + 4, 101);
+    testo[100] = '\0'; 
+
+    colonna_t colonna = (colonna_t)buffer[105];
+
+    card_t* card = create_card(testo, id, colonna);
+    insert_card(card);
+    
+    return 0;
+}

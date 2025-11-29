@@ -11,7 +11,7 @@ esso sarà 1 byte da interpretare come intero, il client poi aspetterà un "ACK"
 i valori assegnati al primo byte inviato hanno i seguenti significati:
 
     - 0 richiesta di HELLO da parte di un client
-
+    - 1 richiesta di creazzione di una card
 
 */
 
@@ -24,5 +24,15 @@ i valori assegnati al primo byte inviato hanno i seguenti significati:
  * @return -1 in caso di errore 0 altrimenti
  */
 int hello(const int, const unsigned short);
+
+/**
+ * @brief funzione per fare richiesta di creare una card
+ * @param sd descrittore del socket locale
+ * @param id id da dare alla card
+ * @param testo testo descrittivo della card
+ * @param colonna colonna in cui verrà inserita la card
+ * @return -1 in caso di errore 0 altrimenti
+ */
+int create_card(const int, const int, const char*, const colonna_t);
 
 #endif

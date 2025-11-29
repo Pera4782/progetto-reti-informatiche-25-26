@@ -1,29 +1,18 @@
 #include "../../include/lavagna/lavagna_functions.h"
-#include "../../include/socket_util.h"
 
-#define REQUESTQUEUE 256
 
 int main(){
 
     init_lavagna();
 
+    card_t* card = create_card("soono una card", 0, DOING);
+    insert_card(card);
+    show_lavagna();
+
+
     socket_t server_sock; //socket che sarà destinato ad accettare le richieste da parte dei client
     
-    //creazione del socket del server
-    if(create_socket(&server_sock, LAVAGNAPORT) < 0){
-        printf("IMPOSSIBILE CREARE IL SOCKET\n");
-        exit(1);
-    }
-
-    if(bind(server_sock.socket, (struct sockaddr*) &server_sock.addr, sizeof(struct sockaddr))){
-        perror("ERRORE NELLA BIND");
-        exit(1);
-    }
-
-    if(listen(server_sock.socket, REQUESTQUEUE) < 0){
-        perror("ERRORE NELLA LISTEN");
-        exit(1);
-    }
+    prepare_server_socket(&server_sock);
 
     while(1){
 
@@ -48,9 +37,13 @@ int main(){
             case 0: 
                 hello_answer(new_sd);
                 break;
+            case 1:
+                create_card_answer(new_sd);
+                break;
             default: printf("COMANDO NON RICONOSCIUTO\n");
         }
 
+        show_lavagna();
         close(new_sd);
     }
 
