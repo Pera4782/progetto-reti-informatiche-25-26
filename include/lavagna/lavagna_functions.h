@@ -23,7 +23,7 @@ void init_lavagna();
 /**
  * @brief creazione di una nuova card allocata nello heap
  * @param testo stringa contenente la descrizione dell'attività
- * @return card_t* puntatore alla card appena creata
+ * @return card_t* puntatore alla card appena creata o NULL in caso di errore
  */
 card_t* create_card(const char*);
 

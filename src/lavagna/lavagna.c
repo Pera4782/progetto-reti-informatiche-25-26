@@ -49,6 +49,7 @@ int main(){
         }
 
         printf("connessione accettata\n");
+        close(new_sd);
     }
 
     destroy_lavagna();

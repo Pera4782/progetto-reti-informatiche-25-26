@@ -4,7 +4,6 @@
 #define RIGALENGTH 20
 
 int nextCardId = 0;
-int nextPortaUtente = LAVAGNAPORT + 1;
 lavagna_t lavagna;
 
 
@@ -40,14 +39,6 @@ card_t* create_card(const char* testo){
     time_t rawtime;
     time(&rawtime);
     card->ultimaModifica = rawtime;
-
-    card->testoAttivita = (char*) malloc(TEXTLEN + 1);
-
-    if(card->testoAttivita == NULL){
-        printf("ERRORE NELLA CREAZIONE DELLA CARD\n");
-        free(card);
-        return NULL;
-    }
 
     strcpy(card->testoAttivita, testo);
 
@@ -112,24 +103,17 @@ static void stampa_card_header(int id){
  * @brief ottenere una riga di 20 caratteri da stampare di una card
  * @param card card di cui si vuole ottenere una riga
  * @param index indice da cui partire per ottenere i 20 caratteri
- * @return stringa contenente la riga del testo
+ * @param line la stringa che conterrà il testo
  */
-static char* get_riga_card(card_t* card, int index){
-
-    char* line = (char*) malloc (21);
-    if(line == NULL){
-        printf("\n\n IMPOSSIBILE DISEGNARE LA LAVAGNA\n\n");
-        return NULL;
-    }
+static void get_riga_card(card_t* card, int index, char* line){
 
     if(card == NULL){
         strcpy(line, "                    \0");
-        return line;
+        return;
     }
 
     for(int i = 0; i < RIGALENGTH; ++i) line[i] = card->testoAttivita[i + index]; //riempio line con i 20 caratteri del testo della card a partire da index
     line[RIGALENGTH] = '\0';
-    return line;
 }
 
 
@@ -163,23 +147,14 @@ void show_lavagna(){
 
         
         for(int i = 0; i < CARDROW ; ++i){ // stampa di una riga di testo delle card da stampare
-            
-            char* line1 = get_riga_card(cardTODO, RIGALENGTH * i);
-            char* line2 = get_riga_card(cardDOING, RIGALENGTH * i);
-            char* line3 = get_riga_card(cardDONE, RIGALENGTH * i);
 
-            if(line1 == NULL || line2 == NULL || line3 == NULL){
-                free(line1);
-                free(line2);
-                free(line3);
-                return;
-            }
+            char line1[21], line2[21], line3[21];
+            get_riga_card(cardTODO, RIGALENGTH * i, line1);
+            get_riga_card(cardDOING, RIGALENGTH * i, line2);
+            get_riga_card(cardDONE, RIGALENGTH * i, line3);
 
             printf("| %s | %s | %s |\n", line1, line2, line3);
 
-            free(line1);
-            free(line2);
-            free(line3);
         }
 
         printf(" --------------------------------------------------------------------\n");
@@ -198,7 +173,6 @@ static void destroy_colonna(card_t* colonna){
 
     while(colonna){
         card_t* p = colonna->nextCard;
-        free(colonna->testoAttivita);
         free(colonna);
         colonna = p;
     }

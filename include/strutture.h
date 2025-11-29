@@ -14,7 +14,7 @@ struct card_struct {
 
     int id;
     colonna_t colonna;
-    char* testoAttivita; //TODO fare statico
+    char testoAttivita[TEXTLEN + 1];
     unsigned short portaUtente;
     time_t ultimaModifica;
 
