@@ -291,8 +291,6 @@ char recv_command(int sd){
         return -1;
     }
 
-    printf("ACK inviato\n");
-
     return command;
 }
 
@@ -342,10 +340,7 @@ int hello_handler(const int sd){
     unsigned short PORT = ntohs(net_port);
 
     pthread_mutex_lock(&mutex_lavagna);
-    
-    printf("ricevuta porta %d\n", PORT); //TODO FIXARE IL CONTROLLO DELLE PORTE DISPONIBILI
 
-    
     //controllo se la porta è disponibile, se no invio disponibile = 0 al client
     if(find_utente(PORT)){
         printf("PORTA NON DISPONIBILE\n");
@@ -368,7 +363,6 @@ int hello_handler(const int sd){
 
     //inserisco l'utente nella lista degli utenti registrati
     insert_utente(PORT);
-    printf("inserito utente\n");
     lavagna.numUtenti ++;
     pthread_mutex_unlock(&mutex_lavagna);
 

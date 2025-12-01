@@ -1,6 +1,17 @@
 #include "../../include/utente/utente_functions.h"
 
 
+int socket_connect(socket_t* sock){
+    //connessione da parte dell'utente alla lavgna
+    if(connect(sock->socket, (struct sockaddr*) &sock->addr, sizeof(struct sockaddr)) < 0){ 
+        close(sock->socket);
+        printf("ERRORE NELLA CONNECT\n");
+        return -1;
+    }
+    return 0;
+}
+
+
 int hello(const int sd, const unsigned short PORT){
 
     char command = HELLO_CMD;
@@ -10,8 +21,6 @@ int hello(const int sd, const unsigned short PORT){
         return -1;
     }
 
-    printf("comando inviato\n");
-
     char ACK;
 
     if(recv(sd, &ACK, 1, MSG_WAITALL) < 1){
@@ -19,17 +28,12 @@ int hello(const int sd, const unsigned short PORT){
         return -1;
     }
 
-    printf("ricevuto ACK\n");
-
     // una volta ricevuto l'ACK del server si puà procedere con l'invio della porta, 2 byte
     unsigned short net_port = htons(PORT);
     if(send(sd, &net_port, 2, 0) < 2){
         printf("ERRORE NELL'INVIO DELLA PORTA\n");
         return -1;
     }
-
-    printf("porta %d inviata\n", PORT);
-
     
     //una volta inviata la porta si aspetta che il server risponda con un byte per capire se era disponibile
     char disponibile;
@@ -63,16 +67,12 @@ int create_card(const int sd, const int id, const char* testo, const colonna_t c
         return -1;
     }
 
-    printf("comando inviato\n");
-
     char ACK;
 
     if(recv(sd, &ACK, 1, MSG_WAITALL) < 1){
         printf("ERRORE NELLA RECEIVE DELL'ACK\n");
         return -1;
     }
-
-    printf("ricevuto ACK\n");
 
     /*
     una volta ricevuto l'ACK si inviano i dati nel seguente formato:
@@ -102,9 +102,6 @@ int create_card(const int sd, const int id, const char* testo, const colonna_t c
         printf("ERRORE NELL'INVIO DEI DATI\n");
         return -1;
     }
-
-    printf("dati inviati\n");
-
 
     //una volta inviati i dati si aspetta che il server risponda con 1 byte per capire se l'id era disponibile
 

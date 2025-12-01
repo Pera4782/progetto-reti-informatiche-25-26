@@ -56,7 +56,6 @@ int main(){
             printf("ERRORE SULLA ACCEPT\n");
             exit(1);
         }
-        printf("connessione accettata\n");
 
         //creazione del thread di gestione della richiesta
         pthread_t request_handling_t;
