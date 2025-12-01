@@ -5,6 +5,10 @@
 #define TEXTLEN 100
 #define LAVAGNAPORT 5678
 
+//definizione dei numeri associati ai comandi
+#define HELLO_CMD 0
+#define CREATE_CARD_CMD 1
+
 #include<netinet/in.h>
 
 enum colonna {TODO = 0, DOING = 1, DONE = 2};

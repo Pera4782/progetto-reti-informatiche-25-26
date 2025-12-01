@@ -6,7 +6,7 @@
 
 int hello(const int sd, const unsigned short PORT){
 
-    char command = 0;
+    char command = HELLO_CMD;
 
     if(send(sd, &command, 1, 0) < 1){  // invio al server dell' azione che si vuole compiere (0 = HELLO)
         perror("ERRORE NELL'INVIO DEL COMANDO");
@@ -31,7 +31,22 @@ int hello(const int sd, const unsigned short PORT){
         return -1;
     }
 
-    printf("porta %d inviata\n", PORT);
+    printf("porta %d inviata\n", PORT);  //TODO FIXARE IL CONTROLLO DELLE PORTE DISPONIBILI
+
+    /*
+    //una volta inviata la porta si aspetta che il server risponda con un byte per capire se era disponibile
+    char disponibile;
+
+    if(recv(sd, &disponibile, 1, MSG_WAITALL) < 1){
+        perror("ERRORE NELLA RICEZIONE DEL DISPONIBILE");
+        return -1;
+    }
+
+    if(!disponibile){
+        printf("PORTA NON DISPONIBILE\n");
+        return -1;
+    }
+    */
 
     return 0;
 }
@@ -44,7 +59,7 @@ int create_card(const int sd, const int id, const char* testo, const colonna_t c
         return -1;
     }
 
-    char command = 1;
+    char command = CREATE_CARD_CMD;
 
     if(send(sd, &command, 1, 0) < 1){
         perror("ERRORE NELL'INVIO DEL COMANDO");
@@ -69,7 +84,7 @@ int create_card(const int sd, const int id, const char* testo, const colonna_t c
 
     char buf[106];
     
-    //serializzazione dell'id in buf
+    //serializzazione dell'id
 
     int net_id = htonl(id);
     memcpy(buf, &net_id, 4);
@@ -92,6 +107,20 @@ int create_card(const int sd, const int id, const char* testo, const colonna_t c
     }
 
     printf("dati inviati\n");
+
+
+    //una volta inviati i dati si aspetta che il server risponda con 1 byte per capire se l'id era disponibile
+
+    char disponibile;
+    if(recv(sd, &disponibile, 1, MSG_WAITALL) < 1){
+        perror("ERRORE NELLA RECEIVE DEL DISPONIBILE");
+        return -1;
+    }
+
+    if(!disponibile) {
+        printf("ID NON DISPONIBILE\n");
+        return -1;
+    }
 
     return 0;
 }

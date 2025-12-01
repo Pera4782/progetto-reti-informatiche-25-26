@@ -6,18 +6,17 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <pthread.h>
 #include "../strutture.h"
 #include "../../include/socket_util.h"
 
 #define CARDROW 5
 
-
-extern int nextCardId;
-extern int nextPortaUtente;
 extern lavagna_t lavagna;
+extern pthread_mutex_t mutex_lavagna;
 
 /**
- * @brief inizializzazione della lavagna
+ * @brief inizializzazione della lavagna e dei semafori
  */
 void init_lavagna();
 
@@ -67,13 +66,13 @@ char recv_command(int sd);
  * @param sd descrittore del socket per la comunicazione con il client
  * @return -1 in caso di errore 0 altrimeenti
  */
-int hello_answer(const int);
+int hello_handler(const int);
 
 /**
  * @brief funzione per rispondere alla richiesta di creare una card
  * @param sd descrittore del socket per la comunicazione con il client
  * @return -1 in caso di errore 0 altrimenti
  */
-int create_card_answer(const int);
+int create_card_handler(const int);
 
 #endif

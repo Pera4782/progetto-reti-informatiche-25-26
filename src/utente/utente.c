@@ -11,14 +11,22 @@ int main(int argc, char** argv) {
     socket_t client_sock;
     create_socket(&client_sock, LAVAGNAPORT);
 
+    if(argc == 1){
+        printf("FORMATO DI ESECUZIONE ERRATO, INSERIRE LA PORTA\n");
+        exit(-1);
+    }
+    const unsigned short PORT = (unsigned short)atoi(argv[1]);
+
     //connessione da parte dell'utente alla lavgna
     if(connect(client_sock.socket, (struct sockaddr*) &client_sock.addr, sizeof(struct sockaddr)) < 0){ 
+        close(client_sock.socket);
         perror("ERRORE NELLA CONNECT");
         exit(1);
     }
 
 
     if(create_card(client_sock.socket, 10, "sono una card", TODO) < 0){
+        close(client_sock.socket);
         printf("ERRORE NELLA HELLO\n");
         exit(1);
     }

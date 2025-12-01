@@ -5,7 +5,7 @@
 #define REQUESTQUEUE 256
 
 lavagna_t lavagna;
-
+pthread_mutex_t mutex_lavagna;
 
 void init_lavagna(){
 
@@ -13,8 +13,15 @@ void init_lavagna(){
     for(int i = 0; i < NUMCOLONNE; ++i) lavagna.colonne[i] = NULL;
     lavagna.utenti = NULL;
     lavagna.numUtenti = 0;
+
+    pthread_mutex_init(&mutex_lavagna, NULL);
 }
 
+/**
+ * @brief funzione che restiruisce la colonna dove si trova la card con un determinato id
+ * @param id id della card di cui si vuole sapere la colonna
+ * @return la colonna o -1 se la card non c'è
+ */
 
 
 card_t* create_card(const char* testo, const int id, colonna_t colonna){
@@ -60,6 +67,19 @@ void insert_card(card_t* card){
     lavagna.colonne[card->colonna] = card;
     lavagna.colonne[card->colonna]->nextCard = temp; //inserimento in testa nella lista corretta
 }
+
+static colonna_t find_card(const int id){
+
+    for(int i = 0; i < NUMCOLONNE; ++i){
+        card_t* lista = lavagna.colonne[i];
+        while(lista){
+            if(lista->id == id) return i;
+            lista = lista->nextCard;
+        }
+    }
+    return -1;
+}
+
 
 /**
  * @brief calcolo di quante cifre ha un numero
@@ -121,7 +141,7 @@ static void get_riga_card(card_t* card, int index, char* line){
 
 
 void show_lavagna(){
-    
+
     printf(" --------------------------------------------------------------------\n");
     printf("|                            Lavagna - %d                             |\n", lavagna.id);
     printf(" --------------------------------------------------------------------\n");
@@ -182,6 +202,8 @@ static void destroy_colonna(card_t* colonna){
 
 void destroy_lavagna(){
 
+    pthread_mutex_lock(&mutex_lavagna);
+
     for(int i = 0; i < NUMCOLONNE; ++i) destroy_colonna(lavagna.colonne[i]);
     
     utente_t* utenti = lavagna.utenti;
@@ -191,6 +213,7 @@ void destroy_lavagna(){
         utenti = p;
     }
 
+    pthread_mutex_unlock(&mutex_lavagna);
 }
 
 
@@ -217,8 +240,8 @@ int prepare_server_socket(socket_t* sock){
 
 char recv_command(int sd){
     
-    char byte;
-    if(recv(sd, &byte, 1, MSG_WAITALL) < 1){
+    char command;
+    if(recv(sd, &command, 1, MSG_WAITALL) < 1){
         perror("ERRORE NELLA RICEZIONE DEL COMANDO");
         return 0xFF;
     }
@@ -232,7 +255,7 @@ char recv_command(int sd){
 
     printf("ACK inviato\n");
 
-    return byte;
+    return command;
 }
 
 
@@ -252,8 +275,23 @@ static void insert_utente(const unsigned short PORT){
     utente->nextUtente = tmp;
 }
 
+/**
+ * @brief funzione che cerca un utente con una certa porta negli utenti registrati
+ * @param PORT la porta che deve avere l'utente che stiamo cercando
+ * @return 0 se non è stato trovato 1 se è stato trovato
+ */
+static int find_utente(const unsigned short PORT){
 
-int hello_answer(const int sd){
+    utente_t* lista = lavagna.utenti;
+    while(lista){
+        if(lista->PORT == PORT) return 1;
+        lista = lista->nextUtente;
+    }
+
+    return 0;
+}
+
+int hello_handler(const int sd){
 
 
     //ricezione della porta da parte del client
@@ -265,36 +303,92 @@ int hello_answer(const int sd){
 
     unsigned short PORT = ntohs(net_port);
 
-    printf("ricevuta porta %d\n", PORT);
+    pthread_mutex_lock(&mutex_lavagna);
+    
+    printf("ricevuta porta %d\n", PORT); //TODO FIXARE IL CONTROLLO DELLE PORTE DISPONIBILI
+
+    /*
+    //controllo se la porta è disponibile, se no invio disponibile = 0 al client
+    if(find_utente(PORT)){
+        printf("PORTA NON DISPONIBILE\n");
+        char disponibile = 0;
+        if(send(sd, &disponibile, 1, 0) < 1){
+            perror("ERRORE NELL'INVIO DI DISPONIBILE");
+            pthread_mutex_unlock(&mutex_lavagna);
+        }
+        return -1;
+    }
+
+    //se si invio disponibile = 1 al client
+    char disponibile = 1;
+    if(send(sd, &disponibile, 1, 0) < 1){
+        perror("ERRORE NELL'INVIO DI DISPONIBILE");
+        pthread_mutex_unlock(&mutex_lavagna);
+        return -1;
+    }
+    */
+
+    //inserisco l'utente nella lista degli utenti registrati
     insert_utente(PORT);
     printf("inserito utente\n");
+
+    pthread_mutex_unlock(&mutex_lavagna);
+
     return 0;
 
 }
 
 
-int create_card_answer(const int sd){
+int create_card_handler(const int sd){
 
-    char buffer[106];
+    char dati[106];
     
-    if(recv(sd, buffer, 106, MSG_WAITALL) < 106){
+    //ricezione dei dati della card
+    if(recv(sd, dati, 106, MSG_WAITALL) < 106){
         perror("ERRORE NELLA RICEZIONE DEI DATI DELLA CARD");
         return -1;
     }
 
+    //deserializzazione dei dati della card
     int net_id;
-    memcpy(&net_id, buffer, 4);
+    memcpy(&net_id, dati, 4);
     int id = ntohl(net_id);
     
     char testo[101];
-    // Copia sicura: buffer + 4 è l'inizio del testo. Assicuriamo la terminazione.
-    memcpy(testo, buffer + 4, 101);
+    memcpy(testo, dati + 4, 101);
     testo[100] = '\0'; 
 
-    colonna_t colonna = (colonna_t)buffer[105];
+    colonna_t colonna = (colonna_t)dati[105];
 
+
+    //controllo se l'ID della card è disponibile
+    pthread_mutex_lock(&mutex_lavagna);
+    int found = find_card(id);
+    pthread_mutex_unlock(&mutex_lavagna);
+
+    //se non lo è mando al client disponibile = 0
+    if(found != -1){
+        printf("ID NON DISPONIBILE\n");
+        char disponibile = 0;
+        if(send(sd, &disponibile, 1, 0) < 1){
+            perror("ERRORE NELL'INVIO DEL DISPONIBILE");
+        }
+        return -1;
+    }
+
+    //se lo è mando al client disponibile = 1
+    char disponibile = 1;
+    if(send(sd, &disponibile, 1, 0) < 1){
+        perror("ERRORE NELL'INVIO DEL DISPONIBILE");
+        return -1;
+    }
+
+    //infine creo ed inserisco la card
     card_t* card = create_card(testo, id, colonna);
+    pthread_mutex_lock(&mutex_lavagna);
     insert_card(card);
-    
+    show_lavagna();
+    pthread_mutex_unlock(&mutex_lavagna);
+
     return 0;
 }
