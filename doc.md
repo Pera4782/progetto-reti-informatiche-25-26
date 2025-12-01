@@ -7,7 +7,7 @@ la comunicazione tra lavagna e utente avviente attraverso una connessione TCP pe
 3. l'utente può procedere con l'invio dei dati, il formato dipende dal comando che si sta eseguendo (vedi sezione formato messaggi)
 4. per le comunicazioni che prevedono una scelta (per esempio la porta) da parte dell'utente la lavagna comunicherà 1 byte che se vale 1 la scelta è andata a buon fine 0 altrimenti
 
-La concorrenza sulla lavagna è gestita tramite multi-threading in quanto un utente per completare un task potrebbe metterci un tempo considerevole quindi non avrebbe senso mantenere la lavagna in una sorta di "busy wait" dove ciclicamente controlla se ci sono dei socket pronti.
+La concorrenza sulla lavagna è gestita tramite multi-threading in quanto la gestione di ogni singolo tipo di comando e stato in cui si può trovare un client sarebbe di complessità molto elevata inoltre l'accesso concorrente alle strutture dati non è un grande problema in quanto le connessioni sono relativamente brevi, d'altro canto utilizzare IO multiplexing avrebbe evitato l'overhead di gestione dei thread a costo di una complessità della gestione delle connessioni molto più elevata
 
 ### Formato messaggi
 
