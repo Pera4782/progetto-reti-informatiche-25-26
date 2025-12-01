@@ -53,15 +53,15 @@ int main(){
         unsigned int len = sizeof(struct sockaddr);
         int new_sd = accept(server_sock.socket, (struct sockaddr*) &client_addr, &len);
         if(new_sd < 0){
-            perror("ERRORE SULLA ACCEPT");
+            printf("ERRORE SULLA ACCEPT\n");
             exit(1);
         }
         printf("connessione accettata\n");
 
-
+        //creazione del thread di gestione della richiesta
         pthread_t request_handling_t;
         if(pthread_create(&request_handling_t, NULL, request_handler, &new_sd) != 0){
-            perror("ERRORE NELLA CREAZIONE DEL THREAD DI GESTIONE");
+            printf("ERRORE NELLA CREAZIONE DEL THREAD DI GESTIONE\n");
             exit(1);
         }
     }

@@ -18,7 +18,7 @@ int create_socket(socket_t* sock, const unsigned short PORT){
 
     sock->socket = socket(AF_INET, SOCK_STREAM, 0);
     if(sock->socket < 0){
-        perror("ERRORE NELLA CREAZIONE DEL SOCKET");
+        printf("ERRORE NELLA CREAZIONE DEL SOCKET\n");
         return -1;
     }
 

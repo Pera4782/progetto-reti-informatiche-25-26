@@ -3,6 +3,10 @@
 #define _UTENTE_FUNCTIONS_H_
 
 #include "../../include/strutture.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <arpa/inet.h>
 
 /*
 

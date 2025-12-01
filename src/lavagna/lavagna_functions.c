@@ -17,11 +17,6 @@ void init_lavagna(){
     pthread_mutex_init(&mutex_lavagna, NULL);
 }
 
-/**
- * @brief funzione che restiruisce la colonna dove si trova la card con un determinato id
- * @param id id della card di cui si vuole sapere la colonna
- * @return la colonna o -1 se la card non c'è
- */
 
 
 card_t* create_card(const char* testo, const int id, colonna_t colonna){
@@ -68,6 +63,13 @@ void insert_card(card_t* card){
     lavagna.colonne[card->colonna]->nextCard = temp; //inserimento in testa nella lista corretta
 }
 
+
+
+/**
+ * @brief funzione che restiruisce la colonna dove si trova la card con un determinato id
+ * @param id id della card di cui si vuole sapere la colonna
+ * @return la colonna o -1 se la card non c'è
+ */
 static colonna_t find_card(const int id){
 
     for(int i = 0; i < NUMCOLONNE; ++i){
@@ -80,6 +82,42 @@ static colonna_t find_card(const int id){
     return -1;
 }
 
+/**
+ * @brief funzione per rimuovere una card
+ * @param id id della card che si vuole rimuovere
+ * @return puntatore alla card rimossa dalla lista NULL se non c'era
+ */
+static card_t* remove_card(const int id){
+
+    for(int i = 0; i < NUMCOLONNE; ++i){
+
+        if(!lavagna.colonne[i]) continue;
+
+        card_t* prev = NULL;
+        card_t* current = lavagna.colonne[i];
+        card_t* next = lavagna.colonne[i]->nextCard;
+
+        if(current->id == id){
+            lavagna.colonne[i] = next;
+            return current;
+        }
+
+        prev = current;
+        current = current->nextCard;
+
+        while(current){
+
+            next = current->nextCard;
+            if(current->id == id){
+                prev->nextCard = next;
+                return current;
+            }
+            prev = current;
+            current = current->nextCard;
+        }
+    }
+    return NULL;
+}
 
 /**
  * @brief calcolo di quante cifre ha un numero
@@ -226,12 +264,12 @@ int prepare_server_socket(socket_t* sock){
     }
 
     if(bind(sock->socket, (struct sockaddr*) &sock->addr, sizeof(struct sockaddr))){
-        perror("ERRORE NELLA BIND");
+        printf("ERRORE NELLA BIND\n");
         return -1;
     }
 
     if(listen(sock->socket, REQUESTQUEUE) < 0){
-        perror("ERRORE NELLA LISTEN");
+        printf("ERRORE NELLA LISTEN\n");
         return -1;
     }
 
@@ -242,14 +280,14 @@ char recv_command(int sd){
     
     char command;
     if(recv(sd, &command, 1, MSG_WAITALL) < 1){
-        perror("ERRORE NELLA RICEZIONE DEL COMANDO");
+        printf("ERRORE NELLA RICEZIONE DEL COMANDO\n");
         return 0xFF;
     }
 
     //invio dell'ACK al client
     char ACK = 0;
     if(send(sd, &ACK, 1, 0) < 1){
-        perror("ERRORE NELL'INVIO DELL'ACK");
+        printf("ERRORE NELL'INVIO DELL'ACK\n");
         return -1;
     }
 
@@ -297,7 +335,7 @@ int hello_handler(const int sd){
     //ricezione della porta da parte del client
     unsigned short net_port;
     if(recv(sd, &net_port, 2, MSG_WAITALL) < 2){
-        perror("ERRORE NELLA RICEZIONE DELLA PORTA");
+        printf("ERRORE NELLA RICEZIONE DELLA PORTA\n");
         return -1;
     }
 
@@ -307,31 +345,31 @@ int hello_handler(const int sd){
     
     printf("ricevuta porta %d\n", PORT); //TODO FIXARE IL CONTROLLO DELLE PORTE DISPONIBILI
 
-    /*
+    
     //controllo se la porta è disponibile, se no invio disponibile = 0 al client
     if(find_utente(PORT)){
         printf("PORTA NON DISPONIBILE\n");
         char disponibile = 0;
         if(send(sd, &disponibile, 1, 0) < 1){
-            perror("ERRORE NELL'INVIO DI DISPONIBILE");
-            pthread_mutex_unlock(&mutex_lavagna);
+            printf("ERRORE NELL'INVIO DI DISPONIBILE\n");
         }
+        pthread_mutex_unlock(&mutex_lavagna);
         return -1;
     }
 
     //se si invio disponibile = 1 al client
     char disponibile = 1;
     if(send(sd, &disponibile, 1, 0) < 1){
-        perror("ERRORE NELL'INVIO DI DISPONIBILE");
+        printf("ERRORE NELL'INVIO DI DISPONIBILE\n");
         pthread_mutex_unlock(&mutex_lavagna);
         return -1;
     }
-    */
+    
 
     //inserisco l'utente nella lista degli utenti registrati
     insert_utente(PORT);
     printf("inserito utente\n");
-
+    lavagna.numUtenti ++;
     pthread_mutex_unlock(&mutex_lavagna);
 
     return 0;
@@ -345,7 +383,7 @@ int create_card_handler(const int sd){
     
     //ricezione dei dati della card
     if(recv(sd, dati, 106, MSG_WAITALL) < 106){
-        perror("ERRORE NELLA RICEZIONE DEI DATI DELLA CARD");
+        printf("ERRORE NELLA RICEZIONE DEI DATI DELLA CARD\n");
         return -1;
     }
 
@@ -371,7 +409,7 @@ int create_card_handler(const int sd){
         printf("ID NON DISPONIBILE\n");
         char disponibile = 0;
         if(send(sd, &disponibile, 1, 0) < 1){
-            perror("ERRORE NELL'INVIO DEL DISPONIBILE");
+            printf("ERRORE NELL'INVIO DEL DISPONIBILE\n");
         }
         return -1;
     }
@@ -379,7 +417,7 @@ int create_card_handler(const int sd){
     //se lo è mando al client disponibile = 1
     char disponibile = 1;
     if(send(sd, &disponibile, 1, 0) < 1){
-        perror("ERRORE NELL'INVIO DEL DISPONIBILE");
+        printf("ERRORE NELL'INVIO DEL DISPONIBILE\n");
         return -1;
     }
 

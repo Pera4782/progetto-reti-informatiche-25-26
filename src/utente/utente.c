@@ -20,12 +20,12 @@ int main(int argc, char** argv) {
     //connessione da parte dell'utente alla lavgna
     if(connect(client_sock.socket, (struct sockaddr*) &client_sock.addr, sizeof(struct sockaddr)) < 0){ 
         close(client_sock.socket);
-        perror("ERRORE NELLA CONNECT");
+        printf("ERRORE NELLA CONNECT\n");
         exit(1);
     }
 
 
-    if(create_card(client_sock.socket, 10, "sono una card", TODO) < 0){
+    if(hello(client_sock.socket, PORT) < 0){
         close(client_sock.socket);
         printf("ERRORE NELLA HELLO\n");
         exit(1);
