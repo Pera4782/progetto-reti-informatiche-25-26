@@ -8,6 +8,7 @@
 //definizione dei numeri associati ai comandi
 #define HELLO_CMD 0
 #define CREATE_CARD_CMD 1
+#define QUIT_CMD 2
 
 #include<netinet/in.h>
 
@@ -30,6 +31,7 @@ typedef struct card_struct card_t;
 struct utente_struct {
     unsigned short PORT;
     int sd;
+    int doingCardId;
     struct utente_struct* nextUtente;
 };
 typedef struct utente_struct utente_t;

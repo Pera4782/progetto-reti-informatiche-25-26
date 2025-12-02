@@ -16,8 +16,9 @@ OGNI primo messaggio che il client invia al server avrà il solo scopo di inform
 esso sarà 1 byte da interpretare come intero, il client poi aspetterà un "ACK" (1 byte) da parte del server per procedere al passaggio dei dati, 
 i valori assegnati al primo byte inviato hanno i seguenti significati:
 
-    - 0 richiesta di HELLO da parte di un client
-    - 1 richiesta di creazzione di una card
+    - 0 richiesta di HELLO da parte di un client (HELLO)
+    - 1 richiesta di creazzione di una card (CREATE_CARD)
+    - 2 richiesta di disconnessione (QUIT)
 
 */
 
@@ -47,5 +48,13 @@ int hello(const int, const unsigned short);
  * @return -1 in caso di errore 0 altrimenti
  */
 int create_card(const int, const int, const char*, const colonna_t);
+
+
+/**
+ * @brief funzione per richiedere la disconnessione al server
+ * @param sd descrittore del socket locale
+ * @return -1 in caso di errore 0 altrimenti 
+ */
+int quit(const int);
 
 #endif

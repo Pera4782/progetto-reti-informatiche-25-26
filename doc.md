@@ -15,3 +15,4 @@ questa sezione contiene il formato dei messaggi per ogni comando:
 
 - comando **HELLO**: | 2 byte PORTA |
 - comando **CREATE_CARD**: | 4 byte ID | 101 byte TESTO ATTIVITA | 1 byte COLONNA |
+- comando **QUIT**: non è necessario inviare nessun messaggio, l'invio del comando specificato sopra è sufficiente

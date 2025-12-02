@@ -5,12 +5,13 @@
  * @param arg argomento del thread contente un puntatore al descrittore del socket della connessione con il client
  * @return NULL
  */
-void* request_handler(void* arg){
+static void* request_handler(void* arg){
 
     pthread_detach(pthread_self());
     int sd = *((int*) arg);
 
-    while(1){
+    int quitted = 0;
+    while(quitted == 0){
 
         //ricezione del comando inviato dal client
         char command = recv_command(sd);
@@ -24,12 +25,22 @@ void* request_handler(void* arg){
         
         //scelta dell'azione da eseguire in relazione al comando
         switch(command){
-            case 0: 
+            case HELLO_CMD:
+
                 hello_handler(sd);
                 break;
-            case 1:
+
+            case CREATE_CARD_CMD:
+
                 create_card_handler(sd);
                 break;
+
+            case QUIT_CMD:
+
+                quit_handler(sd);
+                quitted = 1;
+                break;
+
             default: printf("COMANDO NON RICONOSCIUTO\n");
         }
     }
@@ -40,21 +51,53 @@ void* request_handler(void* arg){
 }
 
 
+/**
+ * @brief funzione da passare al thread per gestire i comandi in entrata da STDIN
+*/
+static void* input_handler(void*){
+ 
+    char input[81];
+
+    while (1){
+
+        //acquisizione del comando da STDIN
+        if(fgets(input, 81, stdin) == NULL){
+            printf("ERRORE NELL'ACQUISIZIONE DEL COMANDO\n");
+            exit(1);
+        }
+        //rimozione del newline nell'input
+        input[strcspn(input, "\n")] = 0;
+        
+        if(strcmp(input, "SHOW_LAVAGNA") == 0){
+
+            pthread_mutex_lock(&mutex_lavagna);
+            show_lavagna();
+            pthread_mutex_unlock(&mutex_lavagna);
+        
+        }else printf("COMANDO NON RICONOSCIUTO\n");
+        
+    }
+
+    pthread_exit(NULL);
+}
+
+
+
 int main(){
 
     init_lavagna();
 
-    card_t* card = create_card("soono una card", 0, TODO);
-    insert_card(card);
     show_lavagna();
 
+    //creazione del thread per ricevere input da linea di comando
+    pthread_t input_handling_t;
+    pthread_create(&input_handling_t, NULL, input_handler, NULL);
 
     socket_t server_sock; //socket che sarà destinato ad accettare le richieste da parte dei client
     
     prepare_server_socket(&server_sock);
 
     while(1){
-
         //il server si mette in attesa di una richiesta dal client
 
         struct sockaddr_in client_addr;

@@ -12,9 +12,7 @@ int socket_connect(socket_t* sock){
 }
 
 
-int hello(const int sd, const unsigned short PORT){
-
-    char command = HELLO_CMD;
+static int send_command(const char command, const int sd){
 
     if(send(sd, &command, 1, 0) < 1){  // invio al server dell' azione che si vuole compiere (0 = HELLO)
         printf("ERRORE NELL'INVIO DEL COMANDO\n");
@@ -23,10 +21,19 @@ int hello(const int sd, const unsigned short PORT){
 
     char ACK;
 
+    //ricezione dell'ACK del comando
     if(recv(sd, &ACK, 1, MSG_WAITALL) < 1){
         printf("ERRORE NELLA RECEIVE DELL'ACK\n");
         return -1;
     }
+    
+    return 0;
+}
+
+
+int hello(const int sd, const unsigned short PORT){
+
+    if(send_command(HELLO_CMD, sd) < 0) return -1;
 
     // una volta ricevuto l'ACK del server si puà procedere con l'invio della porta, 2 byte
     unsigned short net_port = htons(PORT);
@@ -60,19 +67,7 @@ int create_card(const int sd, const int id, const char* testo, const colonna_t c
         return -1;
     }
 
-    char command = CREATE_CARD_CMD;
-
-    if(send(sd, &command, 1, 0) < 1){
-        printf("ERRORE NELL'INVIO DEL COMANDO\n");
-        return -1;
-    }
-
-    char ACK;
-
-    if(recv(sd, &ACK, 1, MSG_WAITALL) < 1){
-        printf("ERRORE NELLA RECEIVE DELL'ACK\n");
-        return -1;
-    }
+    if(send_command(CREATE_CARD_CMD, sd) < 0) return -1;
 
     /*
     una volta ricevuto l'ACK si inviano i dati nel seguente formato:
@@ -118,3 +113,14 @@ int create_card(const int sd, const int id, const char* testo, const colonna_t c
 
     return 0;
 }
+
+
+
+int quit(const int sd){
+
+    if(send_command(QUIT_CMD, sd) < 0) return -1;
+    exit(0);
+}
+
+
+

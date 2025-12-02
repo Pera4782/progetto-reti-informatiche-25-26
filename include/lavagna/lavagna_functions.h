@@ -82,4 +82,11 @@ int hello_handler(const int);
  */
 int create_card_handler(const int);
 
+/**
+ * @brief funzione per rispondere alla richiesta di disconnessione
+ * @param sd descrittore del socket per la comunicazione con il client
+ */
+void quit_handler(const int);
+
+
 #endif

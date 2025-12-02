@@ -50,7 +50,7 @@ static int create_card_command(){
 /**
  * @brief funzione da passare al thread per gestire i comandi in entrata da STDIN
 */
-void* input_handler(void*){
+static void* input_handler(void*){
 
     char input[81];
 
@@ -70,15 +70,16 @@ void* input_handler(void*){
             pthread_mutex_lock(&socket_mutex);
             create_card_command();
             pthread_mutex_unlock(&socket_mutex);
-            
-        }else {
-            printf("COMANDO NON RICONOSCIUTO\n");
-        }
+        
+        }else if(strcmp(input, "QUIT") == 0){
+
+            pthread_mutex_lock(&socket_mutex);
+            quit(client_sock.socket);
+            pthread_mutex_unlock(&socket_mutex);
+
+        }else printf("COMANDO NON RICONOSCIUTO\n");
     }
 
-    pthread_mutex_lock(&socket_mutex);
-    close(client_sock.socket);
-    pthread_mutex_unlock(&socket_mutex);
     pthread_exit(NULL);
 }
 
@@ -93,14 +94,21 @@ int main(int argc, char** argv) {
     }
     const unsigned short PORT = (unsigned short)atoi(argv[1]);
 
+    if(PORT < 5679){
+        printf("NUMERO DI PORTA TROPPO BASSO, DEVE ESSERE ALMENO 5679\n");
+        exit(1);
+    }
+
     //connessione al socket della lavagna e HELLO
     pthread_mutex_lock(&socket_mutex);
+
     if(socket_connect(&client_sock) < 0) exit(1);
 
     if(hello(client_sock.socket, PORT) < 0){
         printf("ERRORE NELLA HELLO\n");
         exit(1);
     }
+
     pthread_mutex_unlock(&socket_mutex);
 
     //creazione del thread per ricezione dell'input

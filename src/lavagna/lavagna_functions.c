@@ -279,12 +279,14 @@ int prepare_server_socket(socket_t* sock){
 char recv_command(int sd){
     
     char command;
-    if(recv(sd, &command, 1, MSG_WAITALL) < 1){
-        printf("ERRORE NELLA RICEZIONE DEL COMANDO O UTENTE DISCONNESSO\n");
+    
+    int ret = recv(sd, &command, 1, MSG_WAITALL);
+    if(ret == -1){
+        printf("ERRORE NELLA RICEZIONE DEL COMANDO\n"); //errore effettivo
         return -1;
-    }
+    }if(ret == 0) return -1; //utente disconnesso
 
-    printf("RICEVUTO COMANDO\n");
+    printf("RICEVUTO COMANDO: %d\n", (int) command);
 
     //invio dell'ACK al client
     char ACK = 0;
@@ -310,6 +312,7 @@ static void insert_utente(const unsigned short PORT, int sd){
     utente_t* utente = (utente_t*) malloc(sizeof(utente_t));
     utente->PORT = PORT;
     utente->sd = sd;
+    utente->doingCardId = -1;
 
     utente_t* tmp = lavagna.utenti;
     lavagna.utenti = utente;
@@ -334,13 +337,19 @@ static int find_utente(const unsigned short PORT){
 
 utente_t* remove_utente(int sd){
 
-    //TODO CONTROLLARE LE CARD DELL'UTENTE DA RIMUOVERE
-
+    //scorrimento della lista e rimozione dell'utente se c'è
     if(lavagna.utenti == NULL) return NULL;
     if(lavagna.utenti->sd == sd){
         utente_t* current = lavagna.utenti;
         lavagna.utenti = lavagna.utenti->nextUtente;
         lavagna.numUtenti --;
+
+        //se l'utente aveva una card in DOING sposto la card in TODO
+        if(current->doingCardId != -1){
+            card_t* card = remove_card(current->doingCardId);
+            card->colonna = TODO;
+            insert_card(card);
+        }
         return current;
     }
 
@@ -353,6 +362,14 @@ utente_t* remove_utente(int sd){
         if(current->sd == sd){
             prev->nextUtente = next;
             lavagna.numUtenti --;
+
+            //se l'utente aveva una card in DOING sposto la card in TODO
+            if(current->doingCardId != -1){
+                card_t* card = remove_card(current->doingCardId);
+                card->colonna = TODO;
+                insert_card(card);
+            }
+
             return current;
         }
         prev = current;
@@ -379,6 +396,7 @@ int hello_handler(const int sd){
 
     //controllo se la porta è disponibile, se no invio disponibile = 0 al client
     if(find_utente(PORT)){
+        
         printf("PORTA NON DISPONIBILE\n");
         char disponibile = 0;
         if(send(sd, &disponibile, 1, 0) < 1){
@@ -467,4 +485,16 @@ int create_card_handler(const int sd){
     pthread_mutex_unlock(&mutex_lavagna);
 
     return 0;
+}
+
+
+void quit_handler(const int sd){
+
+    pthread_mutex_lock(&mutex_lavagna);
+
+    utente_t* u = remove_utente(sd);
+    printf("UTENTE CON PORTA: %d DISCONNESSO\n", (int) u->PORT);
+    free(u);
+
+    pthread_mutex_unlock(&mutex_lavagna);
 }
