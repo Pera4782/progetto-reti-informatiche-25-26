@@ -46,6 +46,13 @@ void show_lavagna();
 void destroy_lavagna();
 
 /**
+ * @brief funzione utilizzata per rimuovere un utente dalla lista degli utenti registrati
+ * @param sd descrittore di socket dell'utente da rimuovere
+ * @return puntatore all'utente rimosso NULL altrimenti
+ */
+utente_t* remove_utente(int sd);
+
+/**
  * @brief inizializza un socket TCP per attendere richieste in entrata
  * @param sock il socket da inizializzare
  * @return -1 in caso di errore 0 altrimenti

@@ -29,6 +29,7 @@ typedef struct card_struct card_t;
 
 struct utente_struct {
     unsigned short PORT;
+    int sd;
     struct utente_struct* nextUtente;
 };
 typedef struct utente_struct utente_t;

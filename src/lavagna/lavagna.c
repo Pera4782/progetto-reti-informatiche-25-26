@@ -7,28 +7,36 @@
  */
 void* request_handler(void* arg){
 
+    pthread_detach(pthread_self());
     int sd = *((int*) arg);
 
-    //ricezione del comando inviato dal client
-    char command = recv_command(sd);
-    if(command == 0xFF){
-        printf("ERRORE NELLA RICEZIONE DEL COMANDO\n");
-        exit(1);
-    }
-    
-    //scelta dell'azione da eseguire in relazione al comando
-    switch(command){
-        case 0: 
-            hello_handler(sd);
+    while(1){
+
+        //ricezione del comando inviato dal client
+        char command = recv_command(sd);
+        if(command == -1){
+            pthread_mutex_lock(&mutex_lavagna);
+            utente_t* u = remove_utente(sd);
+            free(u);
+            pthread_mutex_unlock(&mutex_lavagna);
             break;
-        case 1:
-            create_card_handler(sd);
-            break;
-        default: printf("COMANDO NON RICONOSCIUTO\n");
+        }
+        
+        //scelta dell'azione da eseguire in relazione al comando
+        switch(command){
+            case 0: 
+                hello_handler(sd);
+                break;
+            case 1:
+                create_card_handler(sd);
+                break;
+            default: printf("COMANDO NON RICONOSCIUTO\n");
+        }
     }
 
     close(sd);
-    return NULL;
+    free(arg);
+    pthread_exit(NULL);
 }
 
 
@@ -36,7 +44,7 @@ int main(){
 
     init_lavagna();
 
-    card_t* card = create_card("soono una card", 0, DOING);
+    card_t* card = create_card("soono una card", 0, TODO);
     insert_card(card);
     show_lavagna();
 
@@ -57,9 +65,12 @@ int main(){
             exit(1);
         }
 
+        int* thread_new_sd = (int*) malloc(sizeof(int));
+        *thread_new_sd = new_sd;
+
         //creazione del thread di gestione della richiesta
         pthread_t request_handling_t;
-        if(pthread_create(&request_handling_t, NULL, request_handler, &new_sd) != 0){
+        if(pthread_create(&request_handling_t, NULL, request_handler, thread_new_sd) != 0){
             printf("ERRORE NELLA CREAZIONE DEL THREAD DI GESTIONE\n");
             exit(1);
         }
