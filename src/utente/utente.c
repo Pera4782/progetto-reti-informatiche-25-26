@@ -3,8 +3,11 @@
 #include "../../include/utente/utente_functions.h"
 
 
-socket_t client_sock;
-pthread_mutex_t socket_mutex; //semaforo per il socket della connessione con la lavagna
+socket_t request_sock; // socket per inviare comandi alla lavagna
+pthread_mutex_t request_sock_mutex; //semaforo per il socket delle richieste alla lavagna
+
+
+socket_t user_sock; // socket utilizzato dalla lavagna per fare SEND_USER_LIST e AVAILABLE_CARD e dagli utenti per scambiarsi i messaggi di CHOOSE_USER
 
 /**
  * @brief funzione che gestisce l'inserimento di CREATE_CARD da linea di comando
@@ -39,7 +42,7 @@ static int create_card_command(){
     //pulizia del buffer
     while(getchar() != '\n');
 
-    if(create_card(client_sock.socket, id, testo, colonna) < 0){
+    if(create_card(request_sock.socket, id, testo, colonna) < 0){
         printf("ERRORE NELLA CREAZIONE DELLA CARD\n");
         return -1;
     }
@@ -67,15 +70,15 @@ static void* input_handler(void*){
         //inserimento del comando CREATE_CARD da linea di comando
         if(strcmp(input, "CREATE_CARD") == 0){
             
-            pthread_mutex_lock(&socket_mutex);
+            pthread_mutex_lock(&request_sock_mutex);
             create_card_command();
-            pthread_mutex_unlock(&socket_mutex);
+            pthread_mutex_unlock(&request_sock_mutex);
         
         }else if(strcmp(input, "QUIT") == 0){
 
-            pthread_mutex_lock(&socket_mutex);
-            quit(client_sock.socket);
-            pthread_mutex_unlock(&socket_mutex);
+            pthread_mutex_lock(&request_sock_mutex);
+            quit(request_sock.socket);
+            pthread_mutex_unlock(&request_sock_mutex);
 
         }else printf("COMANDO NON RICONOSCIUTO\n");
     }
@@ -83,10 +86,13 @@ static void* input_handler(void*){
     pthread_exit(NULL);
 }
 
+
+
+
 int main(int argc, char** argv) {
 
-    create_socket(&client_sock, LAVAGNAPORT);
-    pthread_mutex_init(&socket_mutex, NULL);
+    create_socket(&request_sock, LAVAGNAPORT, 1);
+    pthread_mutex_init(&request_sock_mutex, NULL);
 
     if(argc == 1){
         printf("FORMATO DI ESECUZIONE ERRATO, INSERIRE LA PORTA\n");
@@ -100,21 +106,58 @@ int main(int argc, char** argv) {
     }
 
     //connessione al socket della lavagna e HELLO
-    pthread_mutex_lock(&socket_mutex);
+    pthread_mutex_lock(&request_sock_mutex);
 
-    if(socket_connect(&client_sock) < 0) exit(1);
+    if(socket_connect(&request_sock) < 0) exit(1);
 
-    if(hello(client_sock.socket, PORT) < 0){
+    if(hello(request_sock.socket, PORT) < 0){
         printf("ERRORE NELLA HELLO\n");
         exit(1);
     }
 
-    pthread_mutex_unlock(&socket_mutex);
+    pthread_mutex_unlock(&request_sock_mutex);
 
     //creazione del thread per ricezione dell'input
     pthread_t input_handling_t;
     pthread_create(&input_handling_t, NULL, input_handler, NULL);
 
+
+
+    //inizializzazione del socket che si occuperà di ricevere AVAILABLE_CARD e CHOOSE_USER
+    prepare_listener_socket(&user_sock, PORT, 0);
+
+    fd_set read_set, write_set; // tutti i socket di scrittura e lettura
+    fd_set read_ready_set, write_ready_set; // set dove la select lascerà solo i socket pronti in lettura o scrittura
+    int fd_max;
+
+    //struttura contenente il socket dove la lavagna si connetterà e il suo status (cosa sta facendo)
+    struct {
+        int sd; 
+        enum {CONNECTING, AVAILABLE_CARD, SEND_USER_LIST} status;
+    } lavagna_sd_status; 
+
+    //pulizia dei set
+    FD_ZERO(&read_set); 
+    FD_ZERO(&write_set);
+    FD_ZERO(&read_ready_set);
+    FD_ZERO(&write_ready_set);
+
+    //inserimento del listener nel set di lettura
+    FD_SET(user_sock.socket, &read_set);
+    fd_max = user_sock.socket;
+
+    while(1){
+
+        read_ready_set = read_set;
+        write_ready_set = write_set;
+
+        select(fd_max + 1, &read_set, &write_set, NULL, NULL);
+
+
+    }
+
+
+    
 
     pthread_join(input_handling_t, NULL);
     pthread_exit(NULL);

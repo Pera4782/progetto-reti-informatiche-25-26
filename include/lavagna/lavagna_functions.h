@@ -53,14 +53,6 @@ void destroy_lavagna();
 utente_t* remove_utente(int sd);
 
 /**
- * @brief inizializza un socket TCP per attendere richieste in entrata
- * @param sock il socket da inizializzare
- * @return -1 in caso di errore 0 altrimenti
- */
-int prepare_server_socket(socket_t*);
-
-
-/**
  * @brief funzione per ottenere il comando che vuole eseguire l'utente e inviare l'ACK dopo averlo ricevuto 
  * @param sd descrittore del socket per la comunicazione con l'utente
  * @return il comando inviato dall'utente 0xFF in caso di errore

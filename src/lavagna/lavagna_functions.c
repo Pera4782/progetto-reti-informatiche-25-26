@@ -2,7 +2,6 @@
 #include "../../include/lavagna/lavagna_functions.h"
 
 #define RIGALENGTH 20
-#define REQUESTQUEUE 256
 
 lavagna_t lavagna;
 pthread_mutex_t mutex_lavagna;
@@ -255,26 +254,7 @@ void destroy_lavagna(){
 }
 
 
-int prepare_server_socket(socket_t* sock){
 
-    //creazione del socket del server
-    if(create_socket(sock, LAVAGNAPORT) < 0){
-        printf("IMPOSSIBILE CREARE IL SOCKET\n");
-        return -1;
-    }
-
-    if(bind(sock->socket, (struct sockaddr*) &sock->addr, sizeof(struct sockaddr))){
-        printf("ERRORE NELLA BIND\n");
-        return -1;
-    }
-
-    if(listen(sock->socket, REQUESTQUEUE) < 0){
-        printf("ERRORE NELLA LISTEN\n");
-        return -1;
-    }
-
-    return 0;
-}
 
 char recv_command(int sd){
     

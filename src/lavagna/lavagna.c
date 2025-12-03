@@ -93,16 +93,16 @@ int main(){
     pthread_t input_handling_t;
     pthread_create(&input_handling_t, NULL, input_handler, NULL);
 
-    socket_t server_sock; //socket che sarà destinato ad accettare le richieste da parte dei client
+    socket_t request_sock; //socket che sarà destinato ad accettare le richieste di comandi da parte dei client
     
-    prepare_server_socket(&server_sock);
+    prepare_listener_socket(&request_sock, LAVAGNAPORT, 1);
 
     while(1){
         //il server si mette in attesa di una richiesta dal client
 
         struct sockaddr_in client_addr;
         unsigned int len = sizeof(struct sockaddr);
-        int new_sd = accept(server_sock.socket, (struct sockaddr*) &client_addr, &len);
+        int new_sd = accept(request_sock.socket, (struct sockaddr*) &client_addr, &len);
         if(new_sd < 0){
             printf("ERRORE SULLA ACCEPT\n");
             exit(1);
@@ -120,5 +120,6 @@ int main(){
     }
 
     destroy_lavagna();
+    pthread_exit(NULL);
     return 0;
 }
