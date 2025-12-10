@@ -22,14 +22,6 @@ i valori assegnati al primo byte inviato hanno i seguenti significati:
 
 */
 
-extern pthread_mutex_t socket_mutex;
-
-/**
- * @brief funzione che fa la connessione di un socket locale verso la lavagna
- * @param sock struttura contenente i dati del socket
- * @return -1 se errore 0 altrimenti
- */
-int socket_connect(socket_t*);
 
 /**
  * @brief funzione per fare la HELLO (registrazione) da parte del client

@@ -44,8 +44,10 @@ card_t* create_card(const char* testo, const int id, colonna_t colonna){
 
     strcpy(card->testoAttivita, testo);
 
+    //formattazione del testo per la stampa
+    int len = strlen(card->testoAttivita);
+    memset(card->testoAttivita + len, ' ', TEXTLEN - len);
     card->testoAttivita[TEXTLEN] = '\0';
-    for(int i = strlen(testo); i < TEXTLEN; ++i) card->testoAttivita[i] = ' '; // formattazione del testo per la stampa 
 
     return card;
 }
@@ -64,12 +66,7 @@ void insert_card(card_t* card){
 
 
 
-/**
- * @brief funzione che restiruisce la colonna dove si trova la card con un determinato id
- * @param id id della card di cui si vuole sapere la colonna
- * @return la colonna o -1 se la card non c'è
- */
-static colonna_t find_card(const int id){
+colonna_t find_card(const int id){
 
     for(int i = 0; i < NUMCOLONNE; ++i){
         card_t* lista = lavagna.colonne[i];
@@ -81,12 +78,8 @@ static colonna_t find_card(const int id){
     return -1;
 }
 
-/**
- * @brief funzione per rimuovere una card
- * @param id id della card che si vuole rimuovere
- * @return puntatore alla card rimossa dalla lista NULL se non c'era
- */
-static card_t* remove_card(const int id){
+
+card_t* remove_card(const int id){
 
     for(int i = 0; i < NUMCOLONNE; ++i){
 
@@ -268,26 +261,11 @@ char recv_command(int sd){
 
     printf("RICEVUTO COMANDO: %d\n", (int) command);
 
-    //invio dell'ACK al client
-    char ACK = 0;
-    if(send(sd, &ACK, 1, 0) < 1){
-        printf("ERRORE NELL'INVIO DELL'ACK\n");
-        return -1;
-    }
-
-    printf("ACK INVIATO\n");
     return command;
 }
 
 
-
-
-/**
- * @brief funzione che inserisce nella lista degli utenti regiatrati un nuovo utente
- * @param PORT porta dell'utente
- * @param sd descrittore di socket per la comunicazione
- */
-static void insert_utente(const unsigned short PORT, int sd){
+void insert_utente(const unsigned short PORT, int sd){
 
     utente_t* utente = (utente_t*) malloc(sizeof(utente_t));
     utente->PORT = PORT;
@@ -299,12 +277,8 @@ static void insert_utente(const unsigned short PORT, int sd){
     utente->nextUtente = tmp;
 }
 
-/**
- * @brief funzione che cerca un utente con una certa porta negli utenti registrati
- * @param PORT la porta che deve avere l'utente che stiamo cercando
- * @return 0 se non è stato trovato 1 se è stato trovato
- */
-static int find_utente(const unsigned short PORT){
+
+int find_utente(const unsigned short PORT){
 
     utente_t* lista = lavagna.utenti;
     while(lista){
@@ -356,125 +330,4 @@ utente_t* remove_utente(int sd){
         current = current->nextUtente;
     }
     return NULL;
-}
-
-int hello_handler(const int sd){
-
-
-    //ricezione della porta da parte del client
-    unsigned short net_port;
-    if(recv(sd, &net_port, 2, MSG_WAITALL) < 2){
-        printf("ERRORE NELLA RICEZIONE DELLA PORTA\n");
-        return -1;
-    }
-
-    unsigned short PORT = ntohs(net_port);
-
-    printf("RICEVUTA PORTA\n");
-
-    pthread_mutex_lock(&mutex_lavagna);
-
-    //controllo se la porta è disponibile, se no invio disponibile = 0 al client
-    if(find_utente(PORT)){
-        
-        printf("PORTA NON DISPONIBILE\n");
-        char disponibile = 0;
-        if(send(sd, &disponibile, 1, 0) < 1){
-            printf("ERRORE NELL'INVIO DI DISPONIBILE\n");
-        }
-        pthread_mutex_unlock(&mutex_lavagna);
-        return -1;
-    }
-
-    //se si invio disponibile = 1 al client
-    char disponibile = 1;
-    if(send(sd, &disponibile, 1, 0) < 1){
-        printf("ERRORE NELL'INVIO DI DISPONIBILE\n");
-        pthread_mutex_unlock(&mutex_lavagna);
-        return -1;
-    }
-    
-
-    //inserisco l'utente nella lista degli utenti registrati
-    insert_utente(PORT, sd);
-    lavagna.numUtenti ++;
-    
-    printf("UTENTE INSERITO\n");
-    
-    pthread_mutex_unlock(&mutex_lavagna);
-
-    return 0;
-
-}
-
-
-int create_card_handler(const int sd){
-
-    char dati[106];
-    
-    //ricezione dei dati della card
-    if(recv(sd, dati, 106, MSG_WAITALL) < 106){
-        printf("ERRORE NELLA RICEZIONE DEI DATI DELLA CARD\n");
-        return -1;
-    }
-
-    printf("RICEVUTI DATI CARD\n");
-
-    //deserializzazione dei dati della card
-    int net_id;
-    memcpy(&net_id, dati, 4);
-    int id = ntohl(net_id);
-    
-    char testo[101];
-    memcpy(testo, dati + 4, 101);
-    testo[100] = '\0'; 
-
-    colonna_t colonna = (colonna_t)dati[105];
-
-
-    //controllo se l'ID della card è disponibile
-    pthread_mutex_lock(&mutex_lavagna);
-    int found = find_card(id);
-
-    //se non lo è mando al client disponibile = 0
-    if(found != -1){
-        printf("ID NON DISPONIBILE\n");
-        char disponibile = 0;
-        if(send(sd, &disponibile, 1, 0) < 1){
-            printf("ERRORE NELL'INVIO DEL DISPONIBILE\n");
-        }
-        pthread_mutex_unlock(&mutex_lavagna);
-        return -1;
-    }
-
-    //se lo è mando al client disponibile = 1
-    char disponibile = 1;
-    if(send(sd, &disponibile, 1, 0) < 1){
-        printf("ERRORE NELL'INVIO DEL DISPONIBILE\n");
-        pthread_mutex_unlock(&mutex_lavagna);
-        return -1;
-    }
-
-    //infine creo ed inserisco la card
-    card_t* card = create_card(testo, id, colonna);
-    insert_card(card);
-
-    printf("CARD INSERITA\n");
-
-    show_lavagna();
-    pthread_mutex_unlock(&mutex_lavagna);
-
-    return 0;
-}
-
-
-void quit_handler(const int sd){
-
-    pthread_mutex_lock(&mutex_lavagna);
-
-    utente_t* u = remove_utente(sd);
-    printf("UTENTE CON PORTA: %d DISCONNESSO\n", (int) u->PORT);
-    free(u);
-
-    pthread_mutex_unlock(&mutex_lavagna);
 }

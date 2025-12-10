@@ -12,6 +12,7 @@
 #include <fcntl.h>
 #include <sys/select.h>
 #include <time.h>
+#include <unistd.h>
 
 /**
  * @brief inizializza un socket
@@ -32,6 +33,12 @@ int create_socket(socket_t*, const unsigned short, const int);
  */
 int prepare_listener_socket(socket_t*,const unsigned short, const int block);
 
+/**
+ * @brief funzione che fa la connessione di un socket
+ * @param sock struttura contenente i dati del socket
+ * @return -1 se errore 0 altrimenti
+ */
+int socket_connect(socket_t*);
 
 
 #endif

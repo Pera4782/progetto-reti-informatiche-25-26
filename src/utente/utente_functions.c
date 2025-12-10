@@ -1,29 +1,12 @@
 #include "../../include/utente/utente_functions.h"
 
 
-int socket_connect(socket_t* sock){
-    //connessione da parte dell'utente alla lavgna
-    if(connect(sock->socket, (struct sockaddr*) &sock->addr, sizeof(struct sockaddr)) < 0){ 
-        close(sock->socket);
-        printf("ERRORE NELLA CONNECT\n");
-        return -1;
-    }
-    return 0;
-}
-
 
 static int send_command(const char command, const int sd){
 
-    if(send(sd, &command, 1, 0) < 1){  // invio al server dell' azione che si vuole compiere (0 = HELLO)
+    //invio del comando
+    if(send(sd, &command, 1, 0) < 1){  
         printf("ERRORE NELL'INVIO DEL COMANDO\n");
-        return -1;
-    }
-
-    char ACK;
-
-    //ricezione dell'ACK del comando
-    if(recv(sd, &ACK, 1, MSG_WAITALL) < 1){
-        printf("ERRORE NELLA RECEIVE DELL'ACK\n");
         return -1;
     }
     

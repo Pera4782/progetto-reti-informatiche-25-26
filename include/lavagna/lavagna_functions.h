@@ -30,6 +30,20 @@ void init_lavagna();
 card_t* create_card(const char*, const int, const colonna_t);
 
 /**
+ * @brief funzione che restiruisce la colonna dove si trova la card con un determinato id
+ * @param id id della card di cui si vuole sapere la colonna
+ * @return la colonna o -1 se la card non c'è
+ */
+colonna_t find_card(const int id);
+
+/**
+ * @brief funzione per rimuovere una card
+ * @param id id della card che si vuole rimuovere
+ * @return puntatore alla card rimossa dalla lista NULL se non c'era
+ */
+card_t* remove_card(const int id);
+
+/**
  * @brief inserimento di una card all'interno della colonna corretta
  * @param card card da inserire
  */
@@ -46,6 +60,20 @@ void show_lavagna();
 void destroy_lavagna();
 
 /**
+ * @brief funzione che inserisce nella lista degli utenti regiatrati un nuovo utente
+ * @param PORT porta dell'utente
+ * @param sd descrittore di socket per la comunicazione
+ */
+void insert_utente(const unsigned short PORT, int sd);
+
+/**
+ * @brief funzione che cerca un utente con una certa porta negli utenti registrati
+ * @param PORT la porta che deve avere l'utente che stiamo cercando
+ * @return 0 se non è stato trovato 1 se è stato trovato
+ */
+int find_utente(const unsigned short PORT);
+
+/**
  * @brief funzione utilizzata per rimuovere un utente dalla lista degli utenti registrati
  * @param sd descrittore di socket dell'utente da rimuovere
  * @return puntatore all'utente rimosso NULL altrimenti
@@ -58,27 +86,6 @@ utente_t* remove_utente(int sd);
  * @return il comando inviato dall'utente 0xFF in caso di errore
  */
 char recv_command(int sd);
-
-
-/**
- * @brief funzione per rispondere alla HELLO da parte di un client
- * @param sd descrittore del socket per la comunicazione con il client
- * @return -1 in caso di errore 0 altrimeenti
- */
-int hello_handler(const int);
-
-/**
- * @brief funzione per rispondere alla richiesta di creare una card
- * @param sd descrittore del socket per la comunicazione con il client
- * @return -1 in caso di errore 0 altrimenti
- */
-int create_card_handler(const int);
-
-/**
- * @brief funzione per rispondere alla richiesta di disconnessione
- * @param sd descrittore del socket per la comunicazione con il client
- */
-void quit_handler(const int);
 
 
 #endif

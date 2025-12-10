@@ -49,3 +49,12 @@ int prepare_listener_socket(socket_t* sock, const unsigned short PORT ,const int
     return 0;
 }
 
+int socket_connect(socket_t* sock){
+    //connessione del socket
+    if(connect(sock->socket, (struct sockaddr*) &sock->addr, sizeof(struct sockaddr)) < 0){ 
+        close(sock->socket);
+        printf("ERRORE NELLA CONNECT\n");
+        return -1;
+    }
+    return 0;
+}

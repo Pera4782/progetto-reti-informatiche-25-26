@@ -18,8 +18,8 @@ links:
 	ln -sf eseguibili/lavagna lavagna
 	ln -sf eseguibili/utente utente
 
-eseguibili/lavagna: $(OBJLAVDIR)/lavagna.o $(OBJLAVDIR)/lavagna_functions.o build/socket_util.o
-	gcc $(CFLAGS) -o eseguibili/lavagna $(OBJLAVDIR)/lavagna.o $(OBJLAVDIR)/lavagna_functions.o build/socket_util.o
+eseguibili/lavagna: $(OBJLAVDIR)/lavagna.o $(OBJLAVDIR)/lavagna_functions.o build/socket_util.o $(OBJLAVDIR)/request_handlers.o
+	gcc $(CFLAGS) -o eseguibili/lavagna $(OBJLAVDIR)/lavagna.o $(OBJLAVDIR)/lavagna_functions.o build/socket_util.o $(OBJLAVDIR)/request_handlers.o
 
 eseguibili/utente: $(OBJUSRDIR)/utente.o build/socket_util.o $(OBJUSRDIR)/utente_functions.o build/socket_util.o
 	gcc $(CFLAGS) -o eseguibili/utente $(OBJUSRDIR)/utente.o build/socket_util.o $(OBJUSRDIR)/utente_functions.o
@@ -38,3 +38,6 @@ $(OBJUSRDIR)/utente.o: $(SRCUSRDIR)/utente.c include/strutture.h include/socket_
 
 $(OBJUSRDIR)/utente_functions.o: $(SRCUSRDIR)/utente_functions.c include/utente/utente_functions.h include/strutture.h
 	gcc $(CFLAGS) -c $(SRCUSRDIR)/utente_functions.c -o $(OBJUSRDIR)/utente_functions.o
+
+$(OBJLAVDIR)/request_handlers.o: $(SRCLAVDIR)/request_handlers.c include/lavagna/lavagna_functions.h include/lavagna/request_handlers.h
+	gcc $(CFLAGS) -c $(SRCLAVDIR)/request_handlers.c -o $(OBJLAVDIR)/request_handlers.o
