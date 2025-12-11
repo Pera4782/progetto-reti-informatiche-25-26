@@ -58,3 +58,34 @@ int socket_connect(socket_t* sock){
     }
     return 0;
 }
+
+
+
+char recv_command(int sd){
+    
+    char command;
+    
+    int ret = recv(sd, &command, 1, MSG_WAITALL);
+    if(ret == -1){
+        printf("ERRORE NELLA RICEZIONE DEL COMANDO\n"); //errore effettivo
+        return -1;
+    }if(ret == 0) return -1; //utente disconnesso
+
+    printf("RICEVUTO COMANDO: %d\n", (int) command);
+
+    return command;
+}
+
+
+
+int send_command(const char command, const int sd){
+
+    //invio del comando
+    if(send(sd, &command, 1, 0) < 1){  
+        printf("ERRORE NELL'INVIO DEL COMANDO\n");
+        return -1;
+    }
+    
+    return 0;
+}
+

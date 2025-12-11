@@ -1,7 +1,7 @@
 #include "../../include/lavagna/lavagna_functions.h"
 #include "../../include/lavagna/request_handlers.h"
 
-socket_t utl_socket; //socket che sarà destinato ad accettare le richieste di comandi da parte dei client
+socket_t listener; //socket che sarà destinato ad accettare le richieste di comandi da parte dei client
 
 /**
  * @brief funzione che verrà utilizzata per creare un thread per la gestione di richieste in arrivo da parte dei client
@@ -11,36 +11,29 @@ socket_t utl_socket; //socket che sarà destinato ad accettare le richieste di c
 static void* request_handler(void* arg){
 
     pthread_detach(pthread_self());
-    int sd = *((int*) arg);
+    int u2l_sd = *((int*) arg);
 
     int quitted = 0;
     while(quitted == 0){
 
         //ricezione del comando inviato dal client
-        char command = recv_command(sd);
-        if(command == -1){
-            pthread_mutex_lock(&mutex_lavagna);
-            utente_t* u = remove_utente(sd);
-            free(u);
-            pthread_mutex_unlock(&mutex_lavagna);
-            break;
-        }
+        char command = recv_command(u2l_sd);
+        if(command == -1) break;
         
         //scelta dell'azione da eseguire in relazione al comando
         switch(command){
             case HELLO_CMD:
 
-                hello_handler(sd);
+                if(hello_handler(u2l_sd) < 0) quitted = 1;
                 break;
 
             case CREATE_CARD_CMD:
 
-                create_card_handler(sd);
+                if(create_card_handler(u2l_sd) < 0) quitted = 1;
                 break;
 
             case QUIT_CMD:
 
-                quit_handler(sd);
                 quitted = 1;
                 break;
 
@@ -48,7 +41,17 @@ static void* request_handler(void* arg){
         }
     }
 
-    close(sd);
+    pthread_mutex_lock(&mutex_lavagna);
+    utente_t* u = remove_utente(u2l_sd);
+    if(u){
+
+        close(u->l2u_sd);
+        close(u->u2l_sd);
+        printf("UTENTE CON PORTA: %d DISCONNESSO\n", (int) u->PORT);
+        free(u);
+    }
+    
+    pthread_mutex_unlock(&mutex_lavagna);
     free(arg);
     pthread_exit(NULL);
 }
@@ -96,14 +99,14 @@ int main(){
     pthread_t input_handling_t;
     pthread_create(&input_handling_t, NULL, input_handler, NULL);
     
-    prepare_listener_socket(&utl_socket, LAVAGNAPORT, 1);
+    prepare_listener_socket(&listener, LAVAGNAPORT, 1);
 
     while(1){
         
         //il server si mette in attesa di una richiesta dal client
         struct sockaddr_in client_addr;
         unsigned int len = sizeof(struct sockaddr);
-        int u2l_sd = accept(utl_socket.socket, (struct sockaddr*) &client_addr, &len);
+        int u2l_sd = accept(listener.socket, (struct sockaddr*) &client_addr, &len);
         if(u2l_sd < 0){
             printf("ERRORE SULLA ACCEPT\n");
             exit(1);

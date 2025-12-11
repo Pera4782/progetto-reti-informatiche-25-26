@@ -41,4 +41,20 @@ int prepare_listener_socket(socket_t*,const unsigned short, const int block);
 int socket_connect(socket_t*);
 
 
+/**
+ * @brief funzione per ottenere un comando su un socket 
+ * @param sd descrittore del socket per la comunicazione
+ * @return il comando inviato dall'utente 0xFF in caso di errore
+ */
+char recv_command(int sd);
+
+/**
+ * @brief funzione per mandare un comando su un socket
+ * @param command comando da mandare
+ * @param sd descrittore del socket per la comunicazione
+ * @return -1 in caso di errore 0 altrimenti
+ */
+int send_command(const char command, const int sd);
+
+
 #endif

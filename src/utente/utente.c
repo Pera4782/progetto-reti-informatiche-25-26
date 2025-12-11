@@ -6,8 +6,10 @@
 socket_t u2l_socket; // socket per inviare comandi alla lavagna
 pthread_mutex_t u2l_socket_mutex; //semaforo per il socket delle richieste alla lavagna
 
+socket_t l2u_socket; // socket per ricevere dalla lavagna SEND_USER_LIST e AVAILABLE_CARD
 
-socket_t l2u_socket; // socket utilizzato dalla lavagna per fare SEND_USER_LIST e AVAILABLE_CARD e dagli utenti per scambiarsi i messaggi di CHOOSE_USER
+socket_t listener_socket; // socket utilizzato dalla lavagna per comunicare con l'utente
+
 
 /**
  * @brief funzione che gestisce l'inserimento di CREATE_CARD da linea di comando
@@ -111,6 +113,9 @@ int main(int argc, char** argv) {
         exit(1);
     }
 
+    //ignorare il segnale SIGING (CTRL + C)
+    signal(SIGINT, SIG_IGN);
+
     //connessione al socket della lavagna e HELLO
     if(socket_connect(&u2l_socket) < 0) exit(1);
 
@@ -123,7 +128,6 @@ int main(int argc, char** argv) {
     pthread_t input_handling_t;
     pthread_create(&input_handling_t, NULL, input_handler, NULL);
 
-    prepare_listener_socket(&l2u_socket, PORT, 0); //TODO fare la creazione del socket lavagna -> utente a modo
 
     pthread_join(input_handling_t, NULL);
     pthread_exit(NULL);

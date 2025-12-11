@@ -62,9 +62,10 @@ void destroy_lavagna();
 /**
  * @brief funzione che inserisce nella lista degli utenti regiatrati un nuovo utente
  * @param PORT porta dell'utente
- * @param sd descrittore di socket per la comunicazione
+ * @param u2l_sd descrittore di socket per la comunicazione utente -> lavagna
+ * @param l2u_sd descrittore di socket per la comunicazione lavagna -> utente
  */
-void insert_utente(const unsigned short PORT, int sd);
+void insert_utente(const unsigned short PORT, int u2l_sd, int l2u_sd);
 
 /**
  * @brief funzione che cerca un utente con una certa porta negli utenti registrati
@@ -75,17 +76,17 @@ int find_utente(const unsigned short PORT);
 
 /**
  * @brief funzione utilizzata per rimuovere un utente dalla lista degli utenti registrati
- * @param sd descrittore di socket dell'utente da rimuovere
+ * @param u2l_sd descrittore di socket utente -> lavagna dell'utente da rimuovere
  * @return puntatore all'utente rimosso NULL altrimenti
  */
-utente_t* remove_utente(int sd);
+utente_t* remove_utente(int u2l_sd);
+
 
 /**
- * @brief funzione per ottenere il comando che vuole eseguire l'utente e inviare l'ACK dopo averlo ricevuto 
- * @param sd descrittore del socket per la comunicazione con l'utente
- * @return il comando inviato dall'utente 0xFF in caso di errore
+ * @brief funzione per mandare la lista degli utenti a tutti gli utenti
+ * @return -1 in caso di errore 0 altrimenti
  */
-char recv_command(int sd);
+int send_user_list();
 
 
 #endif

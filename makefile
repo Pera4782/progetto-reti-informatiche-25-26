@@ -41,3 +41,7 @@ $(OBJUSRDIR)/utente_functions.o: $(SRCUSRDIR)/utente_functions.c include/utente/
 
 $(OBJLAVDIR)/request_handlers.o: $(SRCLAVDIR)/request_handlers.c include/lavagna/lavagna_functions.h include/lavagna/request_handlers.h
 	gcc $(CFLAGS) -c $(SRCLAVDIR)/request_handlers.c -o $(OBJLAVDIR)/request_handlers.o
+
+
+clean:
+	rm -rf build eseguibili lavagna utente

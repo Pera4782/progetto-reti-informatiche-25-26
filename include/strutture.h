@@ -30,7 +30,8 @@ typedef struct card_struct card_t;
 
 struct utente_struct {
     unsigned short PORT;
-    int sd;
+    int u2l_sd;
+    int l2u_sd;
     int doingCardId;
     struct utente_struct* nextUtente;
 };

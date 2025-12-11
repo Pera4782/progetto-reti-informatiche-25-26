@@ -3,12 +3,14 @@
 #define _UTENTE_FUNCTIONS_H_
 
 #include "../../include/strutture.h"
+#include "../../include/socket_util.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <signal.h>
 
 /*
 
@@ -22,6 +24,8 @@ i valori assegnati al primo byte inviato hanno i seguenti significati:
 
 */
 
+extern socket_t listener_socket;
+extern socket_t l2u_socket;
 
 /**
  * @brief funzione per fare la HELLO (registrazione) da parte del client

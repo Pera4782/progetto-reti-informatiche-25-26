@@ -1,12 +1,12 @@
 #include "../../include/lavagna/request_handlers.h"
 
 
-int hello_handler(const int sd){
+int hello_handler(const int u2l_sd){
 
 
     //ricezione della porta da parte del client
     unsigned short net_port;
-    if(recv(sd, &net_port, 2, MSG_WAITALL) < 2){
+    if(recv(u2l_sd, &net_port, 2, MSG_WAITALL) < 2){
         printf("ERRORE NELLA RICEZIONE DELLA PORTA\n");
         return -1;
     }
@@ -22,7 +22,7 @@ int hello_handler(const int sd){
         
         printf("PORTA NON DISPONIBILE\n");
         char disponibile = 0;
-        if(send(sd, &disponibile, 1, 0) < 1){
+        if(send(u2l_sd, &disponibile, 1, 0) < 1){
             printf("ERRORE NELL'INVIO DI DISPONIBILE\n");
         }
         pthread_mutex_unlock(&mutex_lavagna);
@@ -31,23 +31,54 @@ int hello_handler(const int sd){
 
     //se si invio disponibile = 1 al client
     char disponibile = 1;
-    if(send(sd, &disponibile, 1, 0) < 1){
+    if(send(u2l_sd, &disponibile, 1, 0) < 1){
         printf("ERRORE NELL'INVIO DI DISPONIBILE\n");
         pthread_mutex_unlock(&mutex_lavagna);
         return -1;
     }
     
+   
+    //aspetto che l'utente mi dica che mi posso connettere
+    char can_connect;
+    if(recv(u2l_sd, &can_connect, 1, MSG_WAITALL) < 1){
+        printf("ERRORE NELLA RICEZIONE DEL CAN CONNECT\n");
+        pthread_mutex_unlock(&mutex_lavagna);
+        return -1;
+    }
+
+    
+    printf("RICEVUTO CAN CONNECT\n");
+    
+    //creazione del socket e connessione con l'utente
+    socket_t l2u_sock;
+    if(create_socket(&l2u_sock, PORT, 1) < 0){
+        printf("ERRORE NELLA CREAZIONE DEL SOCKET L2U ALL'UTENTE\n");
+        pthread_mutex_unlock(&mutex_lavagna);
+        return -1;
+    }
+
+    printf("SOCKET L2U CREATO\n");
+
+    if(socket_connect(&l2u_sock) < 0){
+        printf("ERRORE NELLA CONNESSIONE ALL'UTENTE\n");
+        pthread_mutex_unlock(&mutex_lavagna);
+        return -1;
+    }
+
+    printf("CONNESSIONE CON l'UTENTE AVVENUTA\n");
 
     //inserisco l'utente nella lista degli utenti registrati
-    insert_utente(PORT, sd);
-    lavagna.numUtenti ++;
+    insert_utente(PORT, u2l_sd, l2u_sock.socket);
     
     printf("UTENTE INSERITO\n");
-    
     pthread_mutex_unlock(&mutex_lavagna);
 
-    return 0;
 
+    //una volta inserito un nuovo utente mando la nuova lista a tutti gli utenti
+    //TODO send_user_list();
+
+
+    return 0;
 }
 
 
@@ -110,14 +141,3 @@ int create_card_handler(const int sd){
     return 0;
 }
 
-
-void quit_handler(const int sd){
-
-    pthread_mutex_lock(&mutex_lavagna);
-
-    utente_t* u = remove_utente(sd);
-    printf("UTENTE CON PORTA: %d DISCONNESSO\n", (int) u->PORT);
-    free(u);
-
-    pthread_mutex_unlock(&mutex_lavagna);
-}

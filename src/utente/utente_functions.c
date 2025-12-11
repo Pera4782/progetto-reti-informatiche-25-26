@@ -1,19 +1,6 @@
 #include "../../include/utente/utente_functions.h"
 
 
-
-static int send_command(const char command, const int sd){
-
-    //invio del comando
-    if(send(sd, &command, 1, 0) < 1){  
-        printf("ERRORE NELL'INVIO DEL COMANDO\n");
-        return -1;
-    }
-    
-    return 0;
-}
-
-
 int hello(const int sd, const unsigned short PORT){
 
     if(send_command(HELLO_CMD, sd) < 0) return -1;
@@ -38,6 +25,24 @@ int hello(const int sd, const unsigned short PORT){
         return -1;
     }
     
+    //preparo il socket dedicato a ricevere comandi
+    prepare_listener_socket(&listener_socket, PORT, 1);
+
+    //comunico alla lavagna che si può connettere
+    char can_connect = 0;
+    if(send(sd, &can_connect, 1, 0) < 1){
+        printf("ERRORE NELL'INVIO DEL CAN CONNECT\n");
+        return -1;
+    }
+
+    //accetto la connessione dalla lavagna
+    unsigned int len = sizeof(struct sockaddr);
+    l2u_socket.socket = accept(listener_socket.socket, (struct sockaddr*) &l2u_socket.addr, &len);
+    
+    if(l2u_socket.socket < 0){
+        printf("ERRORE NELLA ACCEPT\n");
+        return -1;
+    }
 
     return 0;
 }

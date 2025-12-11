@@ -248,33 +248,20 @@ void destroy_lavagna(){
 
 
 
-
-char recv_command(int sd){
-    
-    char command;
-    
-    int ret = recv(sd, &command, 1, MSG_WAITALL);
-    if(ret == -1){
-        printf("ERRORE NELLA RICEZIONE DEL COMANDO\n"); //errore effettivo
-        return -1;
-    }if(ret == 0) return -1; //utente disconnesso
-
-    printf("RICEVUTO COMANDO: %d\n", (int) command);
-
-    return command;
-}
-
-
-void insert_utente(const unsigned short PORT, int sd){
+void insert_utente(const unsigned short PORT, int u2l_sd, int l2u_sd){
 
     utente_t* utente = (utente_t*) malloc(sizeof(utente_t));
     utente->PORT = PORT;
-    utente->sd = sd;
+    utente->u2l_sd = u2l_sd;
+    utente->l2u_sd = l2u_sd;
     utente->doingCardId = -1;
+
+    lavagna.numUtenti ++;
 
     utente_t* tmp = lavagna.utenti;
     lavagna.utenti = utente;
     utente->nextUtente = tmp;
+
 }
 
 
@@ -289,11 +276,11 @@ int find_utente(const unsigned short PORT){
     return 0;
 }
 
-utente_t* remove_utente(int sd){
+utente_t* remove_utente(int u2l_sd){
 
     //scorrimento della lista e rimozione dell'utente se c'è
     if(lavagna.utenti == NULL) return NULL;
-    if(lavagna.utenti->sd == sd){
+    if(lavagna.utenti->u2l_sd == u2l_sd){
         utente_t* current = lavagna.utenti;
         lavagna.utenti = lavagna.utenti->nextUtente;
         lavagna.numUtenti --;
@@ -313,7 +300,7 @@ utente_t* remove_utente(int sd){
 
     while(current){
         next = current->nextUtente;
-        if(current->sd == sd){
+        if(current->u2l_sd == u2l_sd){
             prev->nextUtente = next;
             lavagna.numUtenti --;
 
@@ -331,3 +318,43 @@ utente_t* remove_utente(int sd){
     }
     return NULL;
 }
+
+/**
+ * @brief funzione per serializzare all'interno di un buffer le porte degli utenti
+ * @param buf buffer all'interno del quale si vuole serializzare le porte
+ */
+static void serialize_ports(char* buf){
+
+    utente_t* utenti = lavagna.utenti;
+    while(utenti){
+
+        short net_port = htons(utenti->PORT);
+        memcpy(buf, &net_port, sizeof(short));
+        buf += sizeof(short);
+
+        utenti = utenti->nextUtente;
+    }
+
+}
+
+int send_user_list(){
+
+    pthread_mutex_lock(&mutex_lavagna);
+
+    //preparazione del buffer contenente tutte le porte da mandare a tutti gli utenti
+    const int LEN = lavagna.numUtenti * sizeof(short);
+    char buf[LEN];
+
+    serialize_ports(buf);
+
+    utente_t* utenti = lavagna.utenti;
+    while(utenti){
+        //TODO FARE LA SEND_USER_LIST
+    }
+
+    pthread_mutex_unlock(&mutex_lavagna);
+
+    return 0;
+}
+
+
