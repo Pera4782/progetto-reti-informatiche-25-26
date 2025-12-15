@@ -4,9 +4,16 @@ l'invio dei comandi verso la lavagna avviente attraverso una connessione TCP per
 
 1. l'utente invia di un byte che rappresenta il comando che vuole eseguire (es. 0 per HELLO, 1 per CREATE_CARD) 
 2. l'utente può procedere con l'invio dei dati, il formato dipende dal comando che si sta eseguendo (vedi sezione formato messaggi)
-3. per le comunicazioni che prevedono una scelta (per esempio la porta) da parte dell'utente la lavagna comunicherà 1 byte che se vale 1 la scelta è andata a buon fine 0 altrimenti
 
 La concorrenza sulla lavagna è gestita tramite multi-threading (questo per limitare l'overhead di creazione/distruzione dei thread stessi) in quanto utilizzando IO multiplexing la gestione di ogni singolo tipo di comando e stato in cui si può trovare un descrittore sarebbe di complessità molto elevata inoltre l'accesso concorrente alle strutture dati non è un grande problema in quanto le operazioni sulla lavagna sono relativamente brevi questo permette quindi una parallelizzazione effettiva, d'altro canto utilizzare IO multiplexing avrebbe evitato l'overhead di gestione dei thread a costo di una complessità della gestione delle connessioni molto più elevata
+
+### Invio dei comandi all'utente
+
+l'invio all'utente dei comandi viene gestito da un thread separato per separare dalla comunicazione tra gli utenti attraverso connessione TCP per motivi di affidabilità, la comunicazione avviene con il seguente protocollo:
+
+1. invio di un byte che rappresenta il comando (0 per SEND_USER_LIST e 1 per AVAILABLE_CARD)
+2. invio dei dati, nel caso di SEND_USER_LIST si procede prima con l'invio del numero di byte da leggere e poi con la lista di porte effettiva, per AVAILABLE card ... 
+
 
 ### Formato messaggi
 
