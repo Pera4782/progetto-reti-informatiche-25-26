@@ -172,6 +172,7 @@ int main(int argc, char** argv) {
 
 
     pthread_join(input_handling_t, NULL);
+    pthread_join(request_handler, NULL);
     pthread_exit(NULL);
     return 0;
 }

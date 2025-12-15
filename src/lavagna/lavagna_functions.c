@@ -325,6 +325,8 @@ utente_t* remove_utente(int u2l_sd){
  */
 static void serialize_ports(char* buf){
 
+    if(lavagna.utenti == NULL) return;
+
     utente_t* utenti = lavagna.utenti;
     while(utenti){
 
@@ -337,37 +339,60 @@ static void serialize_ports(char* buf){
 
 }
 
-int send_user_list(){
+
+void destroy_utente(utente_t* u){
+    close(u->l2u_sd);
+    close(u->u2l_sd);
+    free(u);
+}
+
+
+void send_user_list(){
 
     //preparazione del buffer contenente tutte le porte da mandare a tutti gli utenti
-    const int LEN = lavagna.numUtenti * sizeof(short);
-    char buf[LEN];
+    int LEN = lavagna.numUtenti * sizeof(short);
+    char* buf = (char*) malloc(LEN);
 
     serialize_ports(buf);
+
+    int failed = 0;
+
+    //TODO AGGIUNGERE SEMAFORI PER I SOCKET PER EFFICIENZA
 
     //mando a tutti gli utenti la lista serializzata delle porte
     utente_t* utenti = lavagna.utenti;
     while(utenti){
-        if(send_command(SEND_USER_LIST, utenti->l2u_sd) < 0) return -1;
+
+        failed = 0;
+
+        //per ogni invio si controlla se fallisce in caso si rimuove l'utente e si riprocede con l'invio
+        if(send_command(SEND_USER_LIST, utenti->l2u_sd) < 0) failed = 1;
         
         int net_len = htonl(LEN);
         //invio della lunghezza
-        if(send(utenti->l2u_sd, &net_len, sizeof(int), 0) < 0){
-            printf("ERRORE NEL'INVIO DELLA DIMENSIONE\n");
-            return -1;
-        }
+        if(!failed && send(utenti->l2u_sd, &net_len, sizeof(int), 0) < 0) failed = 1;
 
         //invio del buffer contenente le porte
-        if(send(utenti->l2u_sd, buf, LEN, 0) < 0){
-            printf("ERRORE NELL'INVIO DELLE PORTE\n");
-            return -1;
+        if(!failed && send(utenti->l2u_sd, buf, LEN, 0) < 0) failed = 1;
+
+        //gestione del caso di errore
+        if(failed){
+            printf("ERRORE NELL'INVIO DELLE PORTE ALL'UTENTE CON PORTA: %d, RIMOZIONE DELL'UTENTE E REINVIO\n", (int) utenti->PORT);
+            utente_t *u = remove_utente(utenti->u2l_sd);
+            destroy_utente(u);
+            utenti = lavagna.utenti;
+            LEN = lavagna.numUtenti * sizeof(short);
+            free(buf);
+            buf = (char*) malloc(LEN);
+            serialize_ports(buf);
+            continue;
         }
 
         printf("PORTA INVIATA ALL'UTENTE CON PORTA: %d\n", utenti->PORT);
         utenti = utenti->nextUtente;
     }
 
-    return 0;
+    free(buf);
 }
 
 

@@ -45,13 +45,11 @@ static void* request_handler(void* arg){
     utente_t* u = remove_utente(u2l_sd);
     if(u){
 
-        close(u->l2u_sd);
-        close(u->u2l_sd);
         printf("UTENTE CON PORTA: %d DISCONNESSO\n", (int) u->PORT);
-        free(u);
+        destroy_utente(u);
+        send_user_list();
     }
     
-    send_user_list();
     pthread_mutex_unlock(&mutex_lavagna);
     free(arg);
     pthread_exit(NULL);

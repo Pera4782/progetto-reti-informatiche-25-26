@@ -81,12 +81,16 @@ int find_utente(const unsigned short PORT);
  */
 utente_t* remove_utente(int u2l_sd);
 
+/**
+ * @brief distruzione di un utente con chiusura dei socket
+ * @param u puntatore all'utente da distrugere 
+ */
+void destroy_utente(utente_t*);
 
 /**
- * @brief funzione per mandare la lista degli utenti a tutti gli utenti
- * @return -1 in caso di errore 0 altrimenti
+ * @brief funzione per mandare la lista delle porte degli utenti a tutti gli utenti
  */
-int send_user_list();
+void send_user_list();
 
 
 #endif
