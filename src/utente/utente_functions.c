@@ -103,12 +103,49 @@ int create_card(const int sd, const int id, const char* testo, const colonna_t c
 }
 
 
-
 int quit(const int sd){
 
     if(send_command(QUIT_CMD, sd) < 0) return -1;
     exit(0);
 }
 
+int recv_user_list(){
 
+    int net_len = 0;
+    
+    //ricevo la lunghezza del buffer (sizeof(short) * numUtenti)
+    if(recv(l2u_socket.socket, &net_len, sizeof(int), MSG_WAITALL) < 0){
+        printf("ERRORE NELLA RICEZIONE DELLA LUNGHEZZA\n");
+        return -1;
+    }
+
+    int len = ntohl(net_len);
+
+    char buf[len];
+
+    //ricevo il buffer delle porte
+    if(recv(l2u_socket.socket, buf, len, MSG_WAITALL) < 0){
+        printf("ERRORE NELLA RICEZIONE DELLE PORTE\n");
+        return -1;
+    }
+
+    pthread_mutex_lock(&porte_utenti_mutex);
+    //rimuovo il vecchio buffer
+    free(porte_utenti);
+    //creo il nuovo buffer e lo riempio
+    porte_utenti = (short*) malloc(sizeof(short));
+
+    for(int i = 0; i < len; i += 2){
+        
+        short net_port;
+        memcpy(&net_port, buf + i, sizeof(short));
+        short port = ntohs(net_port);
+        porte_utenti[i] = port;
+        printf("RICEVUTO UTENTE CON PORTA: %d\n", (int) port);
+    }
+    pthread_mutex_unlock(&porte_utenti_mutex);
+
+
+    return 0;
+}
 

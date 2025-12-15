@@ -51,6 +51,7 @@ static void* request_handler(void* arg){
         free(u);
     }
     
+    send_user_list();
     pthread_mutex_unlock(&mutex_lavagna);
     free(arg);
     pthread_exit(NULL);

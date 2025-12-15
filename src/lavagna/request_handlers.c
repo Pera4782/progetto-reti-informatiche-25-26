@@ -71,12 +71,12 @@ int hello_handler(const int u2l_sd){
     insert_utente(PORT, u2l_sd, l2u_sock.socket);
     
     printf("UTENTE INSERITO\n");
-    pthread_mutex_unlock(&mutex_lavagna);
-
-
+    
+    
     //una volta inserito un nuovo utente mando la nuova lista a tutti gli utenti
-    //TODO send_user_list();
-
+    send_user_list();
+    
+    pthread_mutex_unlock(&mutex_lavagna);
 
     return 0;
 }

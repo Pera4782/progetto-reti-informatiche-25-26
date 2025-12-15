@@ -27,6 +27,9 @@ i valori assegnati al primo byte inviato hanno i seguenti significati:
 extern socket_t listener_socket;
 extern socket_t l2u_socket;
 
+extern short* porte_utenti;
+extern pthread_mutex_t porte_utenti_mutex;
+
 /**
  * @brief funzione per fare la HELLO (registrazione) da parte del client
  * @param sd descrittore del socket locale
@@ -52,5 +55,12 @@ int create_card(const int, const int, const char*, const colonna_t);
  * @return -1 in caso di errore 0 altrimenti 
  */
 int quit(const int);
+
+/**
+ * @brief funzione per ricevere la lista degli utenti dalla lavagna
+ * @return -1 in caso di errore 0 altrimenti
+ */
+int recv_user_list();
+
 
 #endif

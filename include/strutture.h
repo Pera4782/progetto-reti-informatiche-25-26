@@ -5,10 +5,14 @@
 #define TEXTLEN 100
 #define LAVAGNAPORT 5678
 
-//definizione dei numeri associati ai comandi
+//definizione dei numeri associati ai comandi da parte dell'utente
 #define HELLO_CMD 0
 #define CREATE_CARD_CMD 1
 #define QUIT_CMD 2
+
+//definizione dei numeri associati ai comandi da parte della lavagna
+#define SEND_USER_LIST 0
+#define CARD_AVAILABLE 1
 
 #include<netinet/in.h>
 

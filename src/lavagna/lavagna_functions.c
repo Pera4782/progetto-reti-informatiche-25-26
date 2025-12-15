@@ -339,20 +339,33 @@ static void serialize_ports(char* buf){
 
 int send_user_list(){
 
-    pthread_mutex_lock(&mutex_lavagna);
-
     //preparazione del buffer contenente tutte le porte da mandare a tutti gli utenti
     const int LEN = lavagna.numUtenti * sizeof(short);
     char buf[LEN];
 
     serialize_ports(buf);
 
+    //mando a tutti gli utenti la lista serializzata delle porte
     utente_t* utenti = lavagna.utenti;
     while(utenti){
-        //TODO FARE LA SEND_USER_LIST
-    }
+        if(send_command(SEND_USER_LIST, utenti->l2u_sd) < 0) return -1;
+        
+        int net_len = htonl(LEN);
+        //invio della lunghezza
+        if(send(utenti->l2u_sd, &net_len, sizeof(int), 0) < 0){
+            printf("ERRORE NEL'INVIO DELLA DIMENSIONE\n");
+            return -1;
+        }
 
-    pthread_mutex_unlock(&mutex_lavagna);
+        //invio del buffer contenente le porte
+        if(send(utenti->l2u_sd, buf, LEN, 0) < 0){
+            printf("ERRORE NELL'INVIO DELLE PORTE\n");
+            return -1;
+        }
+
+        printf("PORTA INVIATA ALL'UTENTE CON PORTA: %d\n", utenti->PORT);
+        utenti = utenti->nextUtente;
+    }
 
     return 0;
 }

@@ -10,7 +10,8 @@ socket_t l2u_socket; // socket per ricevere dalla lavagna SEND_USER_LIST e AVAIL
 
 socket_t listener_socket; // socket utilizzato dalla lavagna per comunicare con l'utente
 
-
+short* porte_utenti = NULL; // lista delle porte degli utenti registrati
+pthread_mutex_t porte_utenti_mutex;
 /**
  * @brief funzione che gestisce l'inserimento di CREATE_CARD da linea di comando
  * @return -1 in caso di errore 0 altrimenti
@@ -89,6 +90,41 @@ static void* input_handler(void*){
 }
 
 
+static void* request_handler(void*){
+
+    while(1){
+
+        char command = recv_command(l2u_socket.socket);
+
+        if(command == -1){
+            printf("ERRORE NELLA RICEZIONE DEL COMANDO\n");
+            exit(1);
+        }
+
+
+        switch(command){
+
+            case SEND_USER_LIST:
+                if(recv_user_list() < 0){
+                    printf("ERRORE NELLA RICEZIONE DELLA LISTA DEGLI UTENTI\n");
+                    exit(1);
+                }
+                break;
+
+            case CARD_AVAILABLE:
+                //TODO recv_card_available();
+                break;
+
+            default:
+                printf("COMANDO NON RICONOSCIUTO\n");
+                break;
+        }
+
+    }
+
+    
+    return NULL;
+}
 
 
 int main(int argc, char** argv) {
@@ -99,7 +135,9 @@ int main(int argc, char** argv) {
         exit(1);
     }
     
+    //inizializzazione semafori
     pthread_mutex_init(&u2l_socket_mutex, NULL);
+    pthread_mutex_init(&porte_utenti_mutex, NULL);
 
     //acquisizione della porta da linea di comando
     if(argc == 1){
@@ -123,6 +161,10 @@ int main(int argc, char** argv) {
         printf("ERRORE NELLA HELLO\n");
         exit(1);
     }
+
+    //creazione del thread che riceverà richieste dalla lavagna
+    pthread_t request_handling_t;
+    pthread_create(&request_handling_t, NULL, request_handler, NULL);
 
     //creazione del thread per ricezione dell'input
     pthread_t input_handling_t;
