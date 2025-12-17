@@ -12,6 +12,7 @@ void init_lavagna(){
     for(int i = 0; i < NUMCOLONNE; ++i) lavagna.colonne[i] = NULL;
     lavagna.utenti = NULL;
     lavagna.numUtenti = 0;
+    lavagna.working = 0;
 
     pthread_mutex_init(&mutex_lavagna, NULL);
 }
@@ -309,6 +310,7 @@ utente_t* remove_utente(int u2l_sd){
                 card_t* card = remove_card(current->doingCardId);
                 card->colonna = TODO;
                 insert_card(card);
+                lavagna.working = 0;
             }
 
             return current;
@@ -375,7 +377,7 @@ void send_user_list(){
         //invio del buffer contenente le porte
         if(!failed && send(utenti->l2u_sd, buf, LEN, 0) < 0) failed = 1;
 
-        //gestione del caso di errore
+        //gestione del caso di errore con la rimozione dell'utente
         if(failed){
             printf("ERRORE NELL'INVIO DELLE PORTE ALL'UTENTE CON PORTA: %d, RIMOZIONE DELL'UTENTE E REINVIO\n", (int) utenti->PORT);
             utente_t *u = remove_utente(utenti->u2l_sd);
@@ -388,11 +390,60 @@ void send_user_list(){
             continue;
         }
 
-        printf("PORTA INVIATA ALL'UTENTE CON PORTA: %d\n", utenti->PORT);
+        printf("PORTE INVIATE ALL'UTENTE CON PORTA: %d\n", utenti->PORT);
         utenti = utenti->nextUtente;
     }
 
     free(buf);
 }
 
+/**
+ * @brief funzione per la serializzazione di una card
+ * @param card card da serializzare
+ * @param buf buffer della dimensione corretta (105) in cui serializzare la card
+ */
+static void serialize_card(card_t card, char* buf){
 
+    int net_card_id = htonl(card.id);
+    memcpy(buf, &net_card_id, sizeof(int));
+    memcpy(buf + sizeof(int), card.testoAttivita, TEXTLEN + 1);
+
+}
+
+void send_available_card(){
+
+    char buf[105];
+    serialize_card(*(lavagna.colonne[TODO]), buf);
+
+    utente_t* utenti = lavagna.utenti;
+
+    while(utenti){
+
+        utente_t *next_utente = utenti->nextUtente;
+
+        if(send_command(AVAILABLE_CARD, utenti->l2u_sd) < 0){
+            
+            printf("ERRORE NELL'INVIO DEL COMANDO ALL'UTENTE CON PORTA: %d, RIMOZIONE DELL'UTENTE\n", (int) utenti->PORT);
+            utente_t* u = remove_utente(utenti->u2l_sd);
+            destroy_utente(u);
+            utenti = next_utente;
+            continue;
+        }
+
+        if(send(utenti->l2u_sd, buf, TEXTLEN + 1 + sizeof(int), 0) < 0){
+            
+            printf("ERRORE NELL'INVIO DELLA CARD ALL'UTENTE CON PORTA: %d, RIMOZIONE DELL'UTENTE\n", (int) utenti->PORT);
+            utente_t* u = remove_utente(utenti->u2l_sd);
+            destroy_utente(u);
+            utenti = next_utente;
+            continue;
+        }
+
+        utenti = next_utente;
+    }
+
+    send_user_list();
+
+    //se gli utenti rimasti (per via di eventuali errori) sono 2 o più iniziano a lavorare
+    if(lavagna.numUtenti >= 2) lavagna.working = 1;
+}

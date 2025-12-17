@@ -149,3 +149,27 @@ int recv_user_list(){
     return 0;
 }
 
+
+int recv_available_card(){
+
+    //ricezione delle info della card nel seguente formato:
+    // | 4 byte ID | 101 byte TESTO ATTIVITA |
+    char buf[105];
+    
+    if(recv(l2u_socket.socket, buf, 105, MSG_WAITALL) < 0){
+        printf("ERRORE NELLA RICEZIONE DELLE INFORMAZIONI DELLA AVAILABLE CARD\n");
+        return -1;
+    }
+    
+    int net_card_id;
+    memcpy(&net_card_id, buf, sizeof(int));
+    working_card.id = ntohl(net_card_id);
+
+
+    strcpy(working_card.testoAttivita, buf + sizeof(int));
+
+    printf("RICEVUTA CARD:\n ID: %d, TESTO: %s\n", working_card.id, working_card.testoAttivita);
+    return 0;
+
+}
+

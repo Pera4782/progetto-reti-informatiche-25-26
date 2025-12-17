@@ -8,10 +8,13 @@ pthread_mutex_t u2l_socket_mutex; //semaforo per il socket delle richieste alla 
 
 socket_t l2u_socket; // socket per ricevere dalla lavagna SEND_USER_LIST e AVAILABLE_CARD
 
-socket_t listener_socket; // socket utilizzato dalla lavagna per comunicare con l'utente
+socket_t listener_socket; // socket utilizzato per ricevere richieste di connessione da altri utenti e lavagna
 
 short* porte_utenti = NULL; // lista delle porte degli utenti registrati
 pthread_mutex_t porte_utenti_mutex;
+
+card_t working_card; // card ricevuta dalla lavagna in AVAILABLE_CARD
+
 /**
  * @brief funzione che gestisce l'inserimento di CREATE_CARD da linea di comando
  * @return -1 in caso di errore 0 altrimenti
@@ -111,8 +114,12 @@ static void* request_handler(void*){
                 }
                 break;
 
-            case CARD_AVAILABLE:
-                //TODO recv_card_available();
+            case AVAILABLE_CARD:
+                
+                if(recv_available_card() < 0){
+                    printf("ERRORE NELLA RICEZIONE DELLA CARD DISPONIBILE\n");
+                    exit(1);
+                }
                 break;
 
             default:

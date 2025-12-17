@@ -30,6 +30,8 @@ extern socket_t l2u_socket;
 extern short* porte_utenti;
 extern pthread_mutex_t porte_utenti_mutex;
 
+extern card_t working_card;
+
 /**
  * @brief funzione per fare la HELLO (registrazione) da parte del client
  * @param sd descrittore del socket locale
@@ -61,6 +63,12 @@ int quit(const int);
  * @return -1 in caso di errore 0 altrimenti
  */
 int recv_user_list();
+
+/**
+ * @brief riceve dalla lavagna la card disponibile
+ * @return -1 in caso di errore 0 altrimenti
+ */
+int recv_available_card();
 
 
 #endif

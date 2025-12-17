@@ -12,7 +12,7 @@
 
 //definizione dei numeri associati ai comandi da parte della lavagna
 #define SEND_USER_LIST 0
-#define CARD_AVAILABLE 1
+#define AVAILABLE_CARD 1
 
 #include<netinet/in.h>
 
@@ -47,6 +47,7 @@ struct lavagna_struct {
     card_t* colonne[NUMCOLONNE];
     utente_t* utenti;
     unsigned int numUtenti;
+    int working;
 };
 typedef struct lavagna_struct lavagna_t;
 

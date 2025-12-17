@@ -7,6 +7,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <signal.h>
 #include "../strutture.h"
 #include "../../include/socket_util.h"
 
@@ -92,5 +93,9 @@ void destroy_utente(utente_t*);
  */
 void send_user_list();
 
+/**
+ * @brief funzione per mandare la card disponibile
+ */
+void send_available_card();
 
 #endif

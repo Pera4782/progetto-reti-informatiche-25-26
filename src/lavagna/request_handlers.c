@@ -72,9 +72,8 @@ int hello_handler(const int u2l_sd){
     
     printf("UTENTE INSERITO\n");
     
-    
-    //una volta inserito un nuovo utente mando la nuova lista a tutti gli utenti
-    send_user_list();
+    //se gli utenti sono 2 o più, c'è una card in TODO e nessun utente sta lavorando su una card si manda la card disponibile
+    if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL && !lavagna.working) send_available_card();
     
     pthread_mutex_unlock(&mutex_lavagna);
 
@@ -136,6 +135,10 @@ int create_card_handler(const int sd){
     printf("CARD INSERITA\n");
 
     show_lavagna();
+
+    //se gli utenti sono 2 o più, c'è una card in TODO e nessun utente sta lavorando su una card si manda la card disponibile
+    if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL && !lavagna.working) send_available_card();
+
     pthread_mutex_unlock(&mutex_lavagna);
 
     return 0;
