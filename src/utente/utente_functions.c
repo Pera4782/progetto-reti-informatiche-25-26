@@ -44,6 +44,11 @@ int hello(const int sd, const unsigned short PORT){
         return -1;
     }
 
+    //setto il listener non bloccante per preparare allo scambio dei messaggi di CHOOSE_USER
+
+    int flags = fcntl(listener_socket.socket, F_GETFL, 0);
+    fcntl(listener_socket.socket, F_SETFL, flags | O_NONBLOCK);
+
     return 0;
 }
 
@@ -129,21 +134,21 @@ int recv_user_list(){
         return -1;
     }
 
-    pthread_mutex_lock(&porte_utenti_mutex);
     //rimuovo il vecchio buffer
     free(porte_utenti);
+    
+    num_utenti = len / sizeof(short);
     //creo il nuovo buffer e lo riempio
-    porte_utenti = (short*) malloc(sizeof(short));
+    porte_utenti = (short*) malloc(sizeof(short) * num_utenti);
 
     for(int i = 0; i < len; i += 2){
         
         short net_port;
         memcpy(&net_port, buf + i, sizeof(short));
         short port = ntohs(net_port);
-        porte_utenti[i] = port;
+        porte_utenti[i / 2] = port;
         printf("RICEVUTO UTENTE CON PORTA: %d\n", (int) port);
     }
-    pthread_mutex_unlock(&porte_utenti_mutex);
 
 
     return 0;
@@ -161,6 +166,7 @@ int recv_available_card(){
         return -1;
     }
     
+    //deserializzazione della card
     int net_card_id;
     memcpy(&net_card_id, buf, sizeof(int));
     working_card.id = ntohl(net_card_id);
@@ -171,5 +177,88 @@ int recv_available_card(){
     printf("RICEVUTA CARD:\n ID: %d, TESTO: %s\n", working_card.id, working_card.testoAttivita);
     return 0;
 
+}
+
+//TODO FINIRE LA FUNZIONE
+int choose_user(){
+
+    socket_t user_sockets[num_utenti];
+
+    //inizializzazione dei fari set
+    fd_set connect_set; // set che contiene i descrittori per la connect
+    FD_ZERO(&connect_set);
+
+    fd_set write_set, write_ready_set; //set per la gestione dei descrittori in scrittura
+    FD_ZERO(&write_set);
+    FD_ZERO(&write_ready_set);
+
+    fd_set read_set, read_ready_set; // set che contengono i descrittori per ricevere CHOOSE_USER e il listener
+    FD_ZERO(&read_set);
+    FD_ZERO(&read_ready_set);
+    FD_SET(listener_socket.socket, &read_set);
+
+
+    int fd_max = listener_socket.socket;
+
+    for(int i = 0; i < num_utenti; ++i) {
+        create_socket(&user_sockets[i], porte_utenti[i], 0);
+        int ret = connect(user_sockets[i].socket, (struct sockaddr*) &user_sockets[i].addr, sizeof(struct sockaddr));
+
+        //controllo se la connessione è andata a buon fine o è ancora in corso
+        if(ret < 0 && errno == EINPROGRESS){
+            FD_SET(user_sockets[i].socket, &connect_set);
+            FD_SET(user_sockets[i].socket, &write_set);
+        }else if(ret >= 0){
+            FD_SET(user_sockets[i].socket, &read_set);
+        }else {
+            printf("CONNESSIONE CON L'UTENTE CON PORTA: %d FALLITA\n", (int)porte_utenti[i]);
+        }
+        if(user_sockets[i].socket > fd_max) fd_max = user_sockets[i].socket;
+    }
+    
+    char my_costo = 0;
+
+    while(1){
+
+        write_ready_set = write_set;
+        read_ready_set = read_set;
+
+        select(fd_max + 1, &read_ready_set, &write_ready_set, NULL, NULL);
+
+        for(int i = 0; i < fd_max + 1; ++i){
+
+            if(FD_ISSET(i, &read_ready_set)){
+
+                if(i == listener_socket.socket){
+                    //se il descrittore pronto è il listener accetto la nuova connessione
+                    struct sockaddr_in user_addr;
+                    unsigned int len = sizeof(user_addr);
+
+                    int new_fd = accept(listener_socket.socket, (struct sockaddr*) &user_addr, &len);
+
+                    if(new_fd < 0){
+                        printf("ERRORE NELLA ACCEPT\n");
+                        continue;
+                    }
+
+                    FD_SET(new_fd, &read_set);
+                    if(new_fd > fd_max) fd_max = new_fd;
+                }else {
+
+
+
+                }
+
+            }else if(FD_ISSET(i, &write_ready_set)){
+
+            }
+
+
+        }
+
+    }
+
+
+    return 0;
 }
 

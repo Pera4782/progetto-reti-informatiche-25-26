@@ -11,7 +11,7 @@ socket_t l2u_socket; // socket per ricevere dalla lavagna SEND_USER_LIST e AVAIL
 socket_t listener_socket; // socket utilizzato per ricevere richieste di connessione da altri utenti e lavagna
 
 short* porte_utenti = NULL; // lista delle porte degli utenti registrati
-pthread_mutex_t porte_utenti_mutex;
+int num_utenti = 0;
 
 card_t working_card; // card ricevuta dalla lavagna in AVAILABLE_CARD
 
@@ -112,6 +112,7 @@ static void* request_handler(void*){
                     printf("ERRORE NELLA RICEZIONE DELLA LISTA DEGLI UTENTI\n");
                     exit(1);
                 }
+                choose_user();
                 break;
 
             case AVAILABLE_CARD:
@@ -144,7 +145,6 @@ int main(int argc, char** argv) {
     
     //inizializzazione semafori
     pthread_mutex_init(&u2l_socket_mutex, NULL);
-    pthread_mutex_init(&porte_utenti_mutex, NULL);
 
     //acquisizione della porta da linea di comando
     if(argc == 1){

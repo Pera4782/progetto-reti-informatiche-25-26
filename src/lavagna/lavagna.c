@@ -47,6 +47,7 @@ static void* request_handler(void* arg){
 
         printf("UTENTE CON PORTA: %d DISCONNESSO\n", (int) u->PORT);
         destroy_utente(u);
+        send_user_list();
     }
     
     pthread_mutex_unlock(&mutex_lavagna);

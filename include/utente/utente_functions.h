@@ -28,7 +28,7 @@ extern socket_t listener_socket;
 extern socket_t l2u_socket;
 
 extern short* porte_utenti;
-extern pthread_mutex_t porte_utenti_mutex;
+extern int num_utenti;
 
 extern card_t working_card;
 
@@ -69,6 +69,12 @@ int recv_user_list();
  * @return -1 in caso di errore 0 altrimenti
  */
 int recv_available_card();
+
+/**
+ * @brief funzione per scambiare il messaggio CHOOSE_USER
+ * @return -1 in caso di errore 0 altrimenti
+ */
+int choose_user();
 
 
 #endif

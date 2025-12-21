@@ -291,6 +291,7 @@ utente_t* remove_utente(int u2l_sd){
             card_t* card = remove_card(current->doingCardId);
             card->colonna = TODO;
             insert_card(card);
+            lavagna.working = 0;
         }
         return current;
     }
@@ -441,8 +442,6 @@ void send_available_card(){
 
         utenti = next_utente;
     }
-
-    send_user_list();
 
     //se gli utenti rimasti (per via di eventuali errori) sono 2 o più iniziano a lavorare
     if(lavagna.numUtenti >= 2) lavagna.working = 1;
