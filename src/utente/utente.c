@@ -12,6 +12,7 @@ socket_t listener_socket; // socket utilizzato per ricevere richieste di conness
 
 short* porte_utenti = NULL; // lista delle porte degli utenti registrati
 int num_utenti = 0;
+short my_port;
 
 card_t working_card; // card ricevuta dalla lavagna in AVAILABLE_CARD
 
@@ -112,15 +113,15 @@ static void* request_handler(void*){
                     printf("ERRORE NELLA RICEZIONE DELLA LISTA DEGLI UTENTI\n");
                     exit(1);
                 }
-                choose_user();
                 break;
-
-            case AVAILABLE_CARD:
+                
+                case AVAILABLE_CARD:
                 
                 if(recv_available_card() < 0){
                     printf("ERRORE NELLA RICEZIONE DELLA CARD DISPONIBILE\n");
                     exit(1);
                 }
+                choose_user();
                 break;
 
             default:
@@ -151,9 +152,9 @@ int main(int argc, char** argv) {
         printf("FORMATO DI ESECUZIONE ERRATO, INSERIRE LA PORTA\n");
         exit(1);
     }
-    const unsigned short PORT = (unsigned short)atoi(argv[1]);
+    my_port = (unsigned short)atoi(argv[1]);
 
-    if(PORT < 5679){
+    if(my_port < 5679){
         printf("NUMERO DI PORTA TROPPO BASSO, DEVE ESSERE ALMENO 5679\n");
         exit(1);
     }
@@ -164,7 +165,7 @@ int main(int argc, char** argv) {
     //connessione al socket della lavagna e HELLO
     if(socket_connect(&u2l_socket) < 0) exit(1);
 
-    if(hello(u2l_socket.socket, PORT) < 0){
+    if(hello(u2l_socket.socket, my_port) < 0){
         printf("ERRORE NELLA HELLO\n");
         exit(1);
     }

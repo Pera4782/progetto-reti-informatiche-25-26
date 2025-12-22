@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <signal.h>
+#include <time.h>
 
 /*
 
@@ -29,6 +30,7 @@ extern socket_t l2u_socket;
 
 extern short* porte_utenti;
 extern int num_utenti;
+extern short my_port;
 
 extern card_t working_card;
 

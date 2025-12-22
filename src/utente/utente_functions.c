@@ -179,10 +179,37 @@ int recv_available_card(){
 
 }
 
-//TODO FINIRE LA FUNZIONE
+
+/**
+ * @brief funzione per trovare la struttura del socket di un utente all'interno di un array
+ * @param sd descrittore da cercare
+ * @param user_sockets array di strutture
+ * @param len dimensione dell'array
+ * @return l'indice a cui si trova la struttura cercata o -1 se non c'è
+ */
+static int find_user_sock(int sd, socket_t* user_sockets, int len){
+
+    for(int i = 0; i < len; ++i)
+        if(user_sockets[i].socket == sd) return i;
+
+    return -1;
+}
+
+
 int choose_user(){
 
     socket_t user_sockets[num_utenti];
+
+    //struttura per contenere, per ogni descrittore se è usato per la lettura il numero di byte ricevuti e il buffer di memorizzazione
+    //se è utilizzato in scrittura il numero di byte mandati
+    struct {
+        int sent_bytes;
+
+        int recv_bytes;
+        char recv_buffer[6];
+    } transfer_state[FD_SETSIZE];
+
+    memset(transfer_state, 0, sizeof(transfer_state));
 
     //inizializzazione dei fari set
     fd_set connect_set; // set che contiene i descrittori per la connect
@@ -201,63 +228,210 @@ int choose_user(){
     int fd_max = listener_socket.socket;
 
     for(int i = 0; i < num_utenti; ++i) {
+
+        if(porte_utenti[i] == my_port) {
+            memset(&user_sockets[i], 0, sizeof(socket_t));
+            continue;
+        }
+
         create_socket(&user_sockets[i], porte_utenti[i], 0);
         int ret = connect(user_sockets[i].socket, (struct sockaddr*) &user_sockets[i].addr, sizeof(struct sockaddr));
 
         //controllo se la connessione è andata a buon fine o è ancora in corso
         if(ret < 0 && errno == EINPROGRESS){
+            //se la connessione è in corso aggiungo il socket al connect set e al write set
             FD_SET(user_sockets[i].socket, &connect_set);
             FD_SET(user_sockets[i].socket, &write_set);
+            if(user_sockets[i].socket > fd_max) fd_max = user_sockets[i].socket;
         }else if(ret >= 0){
-            FD_SET(user_sockets[i].socket, &read_set);
+
+            // se la connessione è andata a buon fine aggiungo il socket al write set
+            FD_SET(user_sockets[i].socket, &write_set);
+            if(user_sockets[i].socket > fd_max) fd_max = user_sockets[i].socket;
         }else {
+
+            close(user_sockets[i].socket);
+            //connessione fallita
             printf("CONNESSIONE CON L'UTENTE CON PORTA: %d FALLITA\n", (int)porte_utenti[i]);
-        }
-        if(user_sockets[i].socket > fd_max) fd_max = user_sockets[i].socket;
+        }  
     }
     
-    char my_costo = 0;
+    //generazione del costo e serializzazione
+    srand(time(NULL) + my_port);
+    int my_costo =  rand();
+    int have_min_costo = 1;
+    
+    char send_buffer[6];
+    int net_my_costo = htonl(my_costo);
+    short net_my_port = htons(my_port);
 
-    while(1){
+    memcpy(send_buffer, &net_my_port, sizeof(short));
+    memcpy(send_buffer + sizeof(short), &net_my_costo, sizeof(int));
+
+    int recv_count = 0;
+    int sent_count = 0;
+
+    while(recv_count != num_utenti - 1 || sent_count != num_utenti - 1){
 
         write_ready_set = write_set;
         read_ready_set = read_set;
 
-        select(fd_max + 1, &read_ready_set, &write_ready_set, NULL, NULL);
+        //timeout di 10 secondi, se non si riceve nulla in questo tempo si considera valido quello già ricevuto
+        struct timeval timeout;
+        timeout.tv_sec = 10;
+        timeout.tv_usec = 0;
+
+        int select_ret = select(fd_max + 1, &read_ready_set, &write_ready_set, NULL, &timeout);
+
+        if(select_ret == 0){
+            printf("TIMEOUT SCADUTO\n");
+            break;
+        }
 
         for(int i = 0; i < fd_max + 1; ++i){
 
-            if(FD_ISSET(i, &read_ready_set)){
+            if(FD_ISSET(i, &read_ready_set) && i == listener_socket.socket){
 
-                if(i == listener_socket.socket){
-                    //se il descrittore pronto è il listener accetto la nuova connessione
-                    struct sockaddr_in user_addr;
-                    unsigned int len = sizeof(user_addr);
+                //se il descrittore pronto è il listener accetto la nuova connessione
+                struct sockaddr_in user_addr;
+                unsigned int len = sizeof(user_addr);
 
-                    int new_fd = accept(listener_socket.socket, (struct sockaddr*) &user_addr, &len);
+                int new_fd = accept(listener_socket.socket, (struct sockaddr*) &user_addr, &len);
 
-                    if(new_fd < 0){
-                        printf("ERRORE NELLA ACCEPT\n");
-                        continue;
-                    }
-
-                    FD_SET(new_fd, &read_set);
-                    if(new_fd > fd_max) fd_max = new_fd;
-                }else {
-
-
-
+                if(new_fd < 0){
+                    printf("ERRORE NELLA ACCEPT\n");
+                    continue;
                 }
 
-            }else if(FD_ISSET(i, &write_ready_set)){
+                memset(&transfer_state[new_fd], 0, sizeof(transfer_state[new_fd]));
+                FD_SET(new_fd, &read_set);
+                if(new_fd > fd_max) fd_max = new_fd;
 
+            }else if(FD_ISSET(i, &write_ready_set) && FD_ISSET(i, &connect_set)){ // se il socket pronto è uno di quelli per la connect
+
+                int index = find_user_sock(i, user_sockets, num_utenti);
+
+                socket_t* user_socket = &user_sockets[index];
+                int ret = connect(user_socket->socket, (struct sockaddr*) &user_socket->addr, sizeof(struct sockaddr));
+
+                // se la connessione è ancora in corso non devo fare niente
+                if(ret < 0 && errno == EINPROGRESS) continue;
+                else if(ret == 0 || (ret < 0 && errno == EISCONN)) 
+                    //se la connessione è andata a buon fine rimuovo il descrittore dal set dedicato alle connect
+                    FD_CLR(i, &connect_set);
+                else{
+                    // se la connessione non è andata a buon fine rimuovo il descrittore da tutti i set
+                    printf("ERRORE NELLA CONNESSIONE CON L'UTENTE CON PORTA %d\n", (int)user_socket->porta);
+                    close(i);
+                    FD_CLR(i, &connect_set);
+                    FD_CLR(i, &write_set);
+                    //calcolo del nuovo fd_max
+                    while(fd_max >= 0 && !FD_ISSET(fd_max, &read_set) && !FD_ISSET(fd_max, &write_set)) fd_max --;
+                }
+                
+            }else if(FD_ISSET(i, &write_ready_set) && !FD_ISSET(i, &connect_set)){ // se il socket pronto è uno di quelli in scrittura mando il costo
+
+                //mando il mio costo
+                int n = send(i, send_buffer + transfer_state[i].sent_bytes, 6 - transfer_state[i].sent_bytes, 0);
+
+                if(n > 0){
+                    // se la send è andata a buon aggiorno i bytes mandati
+                    transfer_state[i].sent_bytes += n;
+
+                    //se ho mandato tutti i bytes ho finito chiudo il socket e pulisco il set
+                    if(transfer_state[i].sent_bytes == 6){
+                        
+                        int index = find_user_sock(i, user_sockets, num_utenti);
+                        printf("MANDATO COSTO %d E PORTA ALL'UTENTE CON PORTA %d\n", my_costo, (int)user_sockets[index].porta);
+                        
+                        close(i);
+                        FD_CLR(i, &write_set);
+                        while(fd_max >= 0 && !FD_ISSET(fd_max, &read_set) && !FD_ISSET(fd_max, &write_set)) fd_max --;
+                        
+                        //incremento il numero di dati mandati con successo
+                        sent_count ++;
+                    }
+                }else if(n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK))
+                    // il send buffer è pieno quindi non faccio niente
+                    continue;
+                else{
+
+                    int index = find_user_sock(i, user_sockets, num_utenti);
+                    printf("ERRORE NELLA SEND DEL COSTO VERSO L'UTENTE CON PORTA: %d\n", (int) user_sockets[index].porta);
+
+                    //la send è fallita chiudo il descrittore e pulisco il set in scrittura
+                    close(i);
+                    FD_CLR(i, &write_set);
+                    while(fd_max >= 0 && !FD_ISSET(fd_max, &read_set) && !FD_ISSET(fd_max, &write_set)) fd_max --;
+                    // se la send fallisce incremento sent_count perchè non posso più mandare dati a quell'utente
+                    sent_count ++;
+                }
+
+            }else if(FD_ISSET(i, &read_ready_set) && i != listener_socket.socket){ // se il socket pronto è tra quelli in lettura ricevo il costo
+
+                //ricevo i bytes che mi mancano da ricevere
+                int n = recv(i, transfer_state[i].recv_buffer + transfer_state[i].recv_bytes, 6 - transfer_state[i].recv_bytes, 0);
+
+                if(n > 0){
+                    // la receive è andata a buon fine controllo quanti bytes ho ricevuto
+                    
+                    transfer_state[i].recv_bytes += n;
+
+                    if(transfer_state[i].recv_bytes == 6){
+                        //ho ricevuto tutti i bytes controllo il costo
+
+                        char* recv_buffer = transfer_state[i].recv_buffer;
+
+                        short net_port;
+                        int net_costo;
+
+                        memcpy(&net_port, recv_buffer, sizeof(short));
+                        memcpy(&net_costo, recv_buffer + sizeof(short), sizeof(int));
+
+                        short port = ntohs(net_port);
+                        int costo = ntohl(net_costo);
+
+                        if(my_costo > costo || (my_costo == costo && my_port > port)) have_min_costo = 0;
+
+                        printf("RICEVUTO COSTO %d DALL'UTENTE CON PORTA %d\n", costo, (int) port);
+
+                        close(i);
+                        FD_CLR(i, &read_set);
+                        while(fd_max >= 0 && !FD_ISSET(fd_max, &read_set) && !FD_ISSET(fd_max, &write_set)) fd_max --;
+
+                        //incremento il numero di dati ricevuti con successo
+                        recv_count ++;
+                    }
+
+                }else if(n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)){
+                    //se non ci sono dati non faccio niente
+                    continue;
+                }else {
+
+                    printf("ERRORE NELLA RECV DEL COSTO E PORTA DA UN UTENTE\n");
+
+                    //la recv è fallita chiudo il descrittore e pulisco il set in lettura
+                    close(i);
+                    FD_CLR(i, &read_set);
+                    while(fd_max >= 0 && !FD_ISSET(fd_max, &read_set) && !FD_ISSET(fd_max, &write_set)) fd_max --;
+
+                    //se la receive fallisce incremento recv_count perchè non posso ricevere dati da quell'utente
+                    recv_count ++;
+                }
             }
-
-
         }
-
     }
 
+    //nel caso il ciclo sopra fosse stato interrotto a cause del timeout chiudo i socket rimasti aperti nei set
+    for(int i = 0; i < fd_max + 1; ++i){
+        if(FD_ISSET(i, &write_set) || FD_ISSET(i, &read_set)){
+            if(i != listener_socket.socket) close(i);
+        }
+    }
+
+    if(have_min_costo){
+        printf("SONO %d\n", (int) my_port);
+    }
 
     return 0;
 }
