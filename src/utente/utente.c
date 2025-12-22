@@ -138,6 +138,7 @@ static void* request_handler(void*){
 
 int main(int argc, char** argv) {
 
+    srand(time(NULL));
     //creazione del socket per la comunicazione utente -> lavagna
     if(create_socket(&u2l_socket, LAVAGNAPORT, 1) < 0){
         printf("ERRORE NELLA CREAZIONE DEL SOCKET PER LA COMUNICAZIONE CON LA LAVAGNA\n");

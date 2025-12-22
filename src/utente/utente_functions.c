@@ -257,7 +257,6 @@ int choose_user(){
     }
     
     //generazione del costo e serializzazione
-    srand(time(NULL) + my_port);
     int my_costo =  rand();
     int have_min_costo = 1;
     
