@@ -20,7 +20,7 @@ static void* request_handler(void* arg){
         char command = recv_command(u2l_sd);
         if(command == -1) break;
         
-        //scelta dell'azione da eseguire in relazione al comando
+        //scelta dell'azione da eseguire in relazione al comando ricevuto
         switch(command){
             case HELLO_CMD:
 
@@ -35,6 +35,14 @@ static void* request_handler(void* arg){
             case QUIT_CMD:
 
                 quitted = 1;
+                break;
+            
+            case ACK_CARD_CMD:
+                ack_card_handler(u2l_sd);
+                break;
+
+            case CARD_DONE_CMD:
+                card_done_handler(u2l_sd);
                 break;
 
             default: printf("COMANDO NON RICONOSCIUTO\n");

@@ -25,6 +25,9 @@ i valori assegnati al primo byte inviato hanno i seguenti significati:
 
 */
 
+extern socket_t u2l_socket;
+extern pthread_mutex_t u2l_socket_mutex;
+
 extern socket_t listener_socket;
 extern socket_t l2u_socket;
 

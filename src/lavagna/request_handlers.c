@@ -146,3 +146,62 @@ int create_card_handler(const int sd){
     return 0;
 }
 
+
+
+void ack_card_handler(const int u2l_sd){
+
+    pthread_mutex_lock(&mutex_lavagna);
+    // ricerca dell'utente con il descrittore passato per argomento
+    utente_t* utente = lavagna.utenti;
+    while(utente) {
+        if(utente->u2l_sd == u2l_sd) break;
+        utente = utente->nextUtente;
+    }
+
+    //muovo la card nella colonna DOING e la assegno all'utente
+    card_t* work = remove_card(lavagna.colonne[TODO]->id);
+
+    utente->doingCardId = work->id;
+    //TODO aggiornare timestamp
+
+    work->colonna = DOING;
+    insert_card(work);
+
+    printf("CARD ASSEGNATA ALL'UTENTE CON PORTA: %d\n", (int)utente->PORT);
+
+    show_lavagna();
+
+    pthread_mutex_unlock(&mutex_lavagna);
+
+}
+
+
+
+void card_done_handler(const int u2l_sd){
+
+
+    pthread_mutex_lock(&mutex_lavagna);
+    // ricerca dell'utente con il descrittore passato per argomento
+    utente_t* utente = lavagna.utenti;
+    while(utente) {
+        if(utente->u2l_sd == u2l_sd) break;
+        utente = utente->nextUtente;
+    }
+
+    utente->doingCardId = -1;
+
+    //rimozione della card da DOING e inserimento nella colonna DONE
+    card_t* completed_card = remove_card(lavagna.colonne[DOING]->id);
+    completed_card->colonna = DONE;
+    insert_card(completed_card);
+
+    //TODO aggiornare timestamp
+
+    lavagna.working = 0;
+
+    show_lavagna();
+
+    if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL) send_available_card();
+
+    pthread_mutex_unlock(&mutex_lavagna);
+}

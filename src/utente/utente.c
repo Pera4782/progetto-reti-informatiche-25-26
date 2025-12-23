@@ -12,7 +12,7 @@ socket_t listener_socket; // socket utilizzato per ricevere richieste di conness
 
 short* porte_utenti = NULL; // lista delle porte degli utenti registrati
 int num_utenti = 0;
-short my_port;
+short my_port = -1;
 
 card_t working_card; // card ricevuta dalla lavagna in AVAILABLE_CARD
 

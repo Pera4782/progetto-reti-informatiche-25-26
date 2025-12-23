@@ -18,5 +18,16 @@ int hello_handler(const int);
 int create_card_handler(const int);
 
 
+/**
+ * @brief funzione chiamata dopo ACK_CARD che assegna la card all'utente
+ * @param u2l_sd il socket u2l dell'utente a cui si vuole assegnare la card
+ */
+void ack_card_handler(const int);
+
+/**
+ * @brief funzione per gestire il comando di CARD_DONE
+ * @param u2l_sd il socket u2l dell'utentente che ha mandato CARD_DONE
+ */
+void card_done_handler(const int);
 
 #endif

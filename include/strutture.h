@@ -9,6 +9,8 @@
 #define HELLO_CMD 0
 #define CREATE_CARD_CMD 1
 #define QUIT_CMD 2
+#define ACK_CARD_CMD 3
+#define CARD_DONE_CMD 4
 
 //definizione dei numeri associati ai comandi da parte della lavagna
 #define SEND_USER_LIST 0

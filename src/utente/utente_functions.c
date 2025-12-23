@@ -5,7 +5,7 @@ int hello(const int sd, const unsigned short PORT){
 
     if(send_command(HELLO_CMD, sd) < 0) return -1;
 
-    // una volta ricevuto l'ACK del server si puà procedere con l'invio della porta, 2 byte
+    // invio della porta
     unsigned short net_port = htons(PORT);
     if(send(sd, &net_port, 2, 0) < 2){
         printf("ERRORE NELL'INVIO DELLA PORTA\n");
@@ -62,10 +62,7 @@ int create_card(const int sd, const int id, const char* testo, const colonna_t c
 
     if(send_command(CREATE_CARD_CMD, sd) < 0) return -1;
 
-    /*
-    una volta ricevuto l'ACK si inviano i dati nel seguente formato:
-    | 4 byte ID | 101 byte testo + \0 | 1 byte colonna |
-    */
+    //invio dei dati relativi alla card
 
     char buf[106];
     
@@ -158,7 +155,6 @@ int recv_user_list(){
 int recv_available_card(){
 
     //ricezione delle info della card nel seguente formato:
-    // | 4 byte ID | 101 byte TESTO ATTIVITA |
     char buf[105];
     
     if(recv(l2u_socket.socket, buf, 105, MSG_WAITALL) < 0){
@@ -182,18 +178,40 @@ int recv_available_card(){
 
 /**
  * @brief funzione per trovare la struttura del socket di un utente all'interno di un array
- * @param sd descrittore da cercare
+ * @param write_sd descrittore in scrittura da cercare
  * @param user_sockets array di strutture
  * @param len dimensione dell'array
  * @return l'indice a cui si trova la struttura cercata o -1 se non c'è
  */
-static int find_user_sock(int sd, socket_t* user_sockets, int len){
+static int find_user_sock(int write_sd, socket_t* user_sockets, int len){
 
     for(int i = 0; i < len; ++i)
-        if(user_sockets[i].socket == sd) return i;
+        if(user_sockets[i].socket == write_sd) return i;
 
     return -1;
 }
+
+/**
+ * @brief funzione da passare al thread che farà sleep per lavorare sulla card
+ */
+static void* card_done_handler(void*){
+
+    pthread_detach(pthread_self());
+    sleep(20);
+
+    //dopo aver fatto sleep invio il messaggio di CARD_DONE
+    pthread_mutex_lock(&u2l_socket_mutex);
+
+    send_command(CARD_DONE_CMD, u2l_socket.socket);
+    printf("CARD %d COMPLETATA\n", working_card.id);
+    
+    //pulizia della working_card
+    memset(&working_card, -1, sizeof(working_card));
+    
+    pthread_mutex_unlock(&u2l_socket_mutex);
+    pthread_exit(NULL);
+}
+
 
 
 int choose_user(){
@@ -285,6 +303,16 @@ int choose_user(){
         if(select_ret == 0){
             printf("TIMEOUT SCADUTO\n");
             break;
+        }else if(select_ret < 0){
+            printf("ERRORE NELLA SELECT\n");
+
+            //chiusura di tutti i socket e terminazione
+            for(int i = 0; i < fd_max + 1; ++i){
+                if(FD_ISSET(i, &write_set) || FD_ISSET(i, &read_set)){
+                    if(i != listener_socket.socket) close(i);
+                }
+            }
+            exit(1);
         }
 
         for(int i = 0; i < fd_max + 1; ++i){
@@ -343,6 +371,7 @@ int choose_user(){
                         int index = find_user_sock(i, user_sockets, num_utenti);
                         printf("MANDATO COSTO %d E PORTA ALL'UTENTE CON PORTA %d\n", my_costo, (int)user_sockets[index].porta);
                         
+                        //chiusura del socket e pulizia del set
                         close(i);
                         FD_CLR(i, &write_set);
                         while(fd_max >= 0 && !FD_ISSET(fd_max, &read_set) && !FD_ISSET(fd_max, &write_set)) fd_max --;
@@ -373,11 +402,10 @@ int choose_user(){
 
                 if(n > 0){
                     // la receive è andata a buon fine controllo quanti bytes ho ricevuto
-                    
                     transfer_state[i].recv_bytes += n;
 
                     if(transfer_state[i].recv_bytes == 6){
-                        //ho ricevuto tutti i bytes controllo il costo
+                        //ho ricevuto tutti i bytes deserializzo e controllo il costo
 
                         char* recv_buffer = transfer_state[i].recv_buffer;
 
@@ -394,6 +422,7 @@ int choose_user(){
 
                         printf("RICEVUTO COSTO %d DALL'UTENTE CON PORTA %d\n", costo, (int) port);
 
+                        //chiusura del socket e pulizia dei set
                         close(i);
                         FD_CLR(i, &read_set);
                         while(fd_max >= 0 && !FD_ISSET(fd_max, &read_set) && !FD_ISSET(fd_max, &write_set)) fd_max --;
@@ -428,9 +457,24 @@ int choose_user(){
         }
     }
 
-    if(have_min_costo){
-        printf("SONO %d\n", (int) my_port);
+    if(!have_min_costo) {
+        //pulizia della working_card
+        memset(&working_card, -1, sizeof(working_card));
+        return 0;
     }
+
+    pthread_mutex_lock(&u2l_socket_mutex);
+    //invio del comando di ACK_CARD
+    send_command(ACK_CARD_CMD, u2l_socket.socket);
+    pthread_mutex_unlock(&u2l_socket_mutex);
+
+
+    //creo un nuovo thread che farà la sleep e notificherà la lavagna della fine della card questo per evitare di bloccare la comunicazione
+    //con la lavagna
+
+    pthread_t card_done_handling_t;
+    pthread_create(&card_done_handling_t, NULL, card_done_handler, NULL);
+
 
     return 0;
 }
