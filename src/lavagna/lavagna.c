@@ -33,7 +33,6 @@ static void* request_handler(void* arg){
                 break;
 
             case QUIT_CMD:
-
                 quitted = 1;
                 break;
             
@@ -45,7 +44,7 @@ static void* request_handler(void* arg){
                 card_done_handler(u2l_sd);
                 break;
 
-            default: printf("COMANDO NON RICONOSCIUTO\n");
+            default: printf("[ERR] COMANDO NON RICONOSCIUTO\n");
         }
     }
 
@@ -53,9 +52,20 @@ static void* request_handler(void* arg){
     utente_t* u = remove_utente(u2l_sd);
     if(u){
 
-        printf("UTENTE CON PORTA: %d DISCONNESSO\n", (int) u->PORT);
+        printf("[INFO] UTENTE CON PORTA: %d DISCONNESSO\n", (int) u->PORT);
+
+        //gestione del caso dove l'utente disconnesso stava lavorando ad una card
+        if(u->doingCardId != -1){
+            card_t* work = remove_card(u->doingCardId);
+            work->colonna = TODO;
+            insert_card(work);
+            show_lavagna();
+            lavagna.working = 0;
+        }
+
         destroy_utente(u);
         send_user_list();
+        if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL && !lavagna.working) send_available_card();
     }
     
     pthread_mutex_unlock(&mutex_lavagna);
@@ -75,7 +85,7 @@ static void* input_handler(void*){
 
         //acquisizione del comando da STDIN
         if(fgets(input, 81, stdin) == NULL){
-            printf("ERRORE NELL'ACQUISIZIONE DEL COMANDO\n");
+            printf("[ERR] ERRORE NELL'ACQUISIZIONE DEL COMANDO\n");
             exit(1);
         }
         //rimozione del newline nell'input
@@ -87,7 +97,7 @@ static void* input_handler(void*){
             show_lavagna();
             pthread_mutex_unlock(&mutex_lavagna);
         
-        }else printf("COMANDO NON RICONOSCIUTO\n");
+        }else printf("[ERR] COMANDO NON RICONOSCIUTO\n");
         
     }
 
@@ -115,7 +125,7 @@ int main(){
         unsigned int len = sizeof(struct sockaddr);
         int u2l_sd = accept(listener.socket, (struct sockaddr*) &client_addr, &len);
         if(u2l_sd < 0){
-            printf("ERRORE SULLA ACCEPT\n");
+            printf("[ERR] ERRORE SULLA ACCEPT\n");
             exit(1);
         }
 
@@ -125,7 +135,7 @@ int main(){
         //creazione del thread di gestione della richiesta
         pthread_t request_handling_t;
         if(pthread_create(&request_handling_t, NULL, request_handler, thread_u2l_sd) != 0){
-            printf("ERRORE NELLA CREAZIONE DEL THREAD DI GESTIONE\n");
+            printf("[ERR] ERRORE NELLA CREAZIONE DEL THREAD DI GESTIONE\n");
             exit(1);
         }
     }

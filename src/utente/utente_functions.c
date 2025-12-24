@@ -8,7 +8,7 @@ int hello(const int sd, const unsigned short PORT){
     // invio della porta
     unsigned short net_port = htons(PORT);
     if(send(sd, &net_port, 2, 0) < 2){
-        printf("ERRORE NELL'INVIO DELLA PORTA\n");
+        printf("[ERR] ERRORE NELL'INVIO DELLA PORTA\n");
         return -1;
     }
     
@@ -16,12 +16,12 @@ int hello(const int sd, const unsigned short PORT){
     char disponibile;
 
     if(recv(sd, &disponibile, 1, MSG_WAITALL) < 1){
-        printf("ERRORE NELLA RICEZIONE DEL DISPONIBILE\n");
+        printf("[ERR] ERRORE NELLA RICEZIONE DEL DISPONIBILE\n");
         return -1;
     }
 
     if(!disponibile){
-        printf("PORTA NON DISPONIBILE\n");
+        printf("[ERR] PORTA NON DISPONIBILE\n");
         return -1;
     }
     
@@ -31,7 +31,7 @@ int hello(const int sd, const unsigned short PORT){
     //comunico alla lavagna che si può connettere
     char can_connect = 0;
     if(send(sd, &can_connect, 1, 0) < 1){
-        printf("ERRORE NELL'INVIO DEL CAN CONNECT\n");
+        printf("[ERR] ERRORE NELL'INVIO DEL CAN CONNECT\n");
         return -1;
     }
 
@@ -40,7 +40,7 @@ int hello(const int sd, const unsigned short PORT){
     l2u_socket.socket = accept(listener_socket.socket, (struct sockaddr*) &l2u_socket.addr, &len);
     
     if(l2u_socket.socket < 0){
-        printf("ERRORE NELLA ACCEPT\n");
+        printf("[ERR] ERRORE NELLA ACCEPT\n");
         return -1;
     }
 
@@ -49,6 +49,7 @@ int hello(const int sd, const unsigned short PORT){
     int flags = fcntl(listener_socket.socket, F_GETFL, 0);
     fcntl(listener_socket.socket, F_SETFL, flags | O_NONBLOCK);
 
+    printf("[INFO] REGISTRAZIONE AVVENUTA CON SUCCESSO\n");
     return 0;
 }
 
@@ -56,7 +57,7 @@ int create_card(const int sd, const int id, const char* testo, const colonna_t c
 
 
     if(strlen(testo) > 100){
-        printf("TESTO TROPPO LUNGO\n");
+        printf("[ERR] TESTO TROPPO LUNGO\n");
         return -1;
     }
 
@@ -84,7 +85,7 @@ int create_card(const int sd, const int id, const char* testo, const colonna_t c
     buf[105] = (char)colonna;
 
     if(send(sd, buf, 106, 0) < 106){
-        printf("ERRORE NELL'INVIO DEI DATI\n");
+        printf("[ERR] ERRORE NELL'INVIO DEI DATI\n");
         return -1;
     }
 
@@ -92,14 +93,16 @@ int create_card(const int sd, const int id, const char* testo, const colonna_t c
 
     char disponibile;
     if(recv(sd, &disponibile, 1, MSG_WAITALL) < 1){
-        printf("ERRORE NELLA RECEIVE DEL DISPONIBILE\n");
+        printf("[ERR] ERRORE NELLA RECEIVE DEL DISPONIBILE\n");
         return -1;
     }
 
     if(!disponibile) {
-        printf("ID NON DISPONIBILE\n");
+        printf("[ERR] ID NON DISPONIBILE\n");
         return -1;
     }
+
+    printf("[INFO] CARD CREATA CON SUCCESSO\n");
 
     return 0;
 }
@@ -117,7 +120,7 @@ int recv_user_list(){
     
     //ricevo la lunghezza del buffer (sizeof(short) * numUtenti)
     if(recv(l2u_socket.socket, &net_len, sizeof(int), MSG_WAITALL) < 0){
-        printf("ERRORE NELLA RICEZIONE DELLA LUNGHEZZA\n");
+        printf("[ERR] ERRORE NELLA RICEZIONE DELLA LUNGHEZZA\n");
         return -1;
     }
 
@@ -127,7 +130,7 @@ int recv_user_list(){
 
     //ricevo il buffer delle porte
     if(recv(l2u_socket.socket, buf, len, MSG_WAITALL) < 0){
-        printf("ERRORE NELLA RICEZIONE DELLE PORTE\n");
+        printf("[ERR] ERRORE NELLA RICEZIONE DELLE PORTE\n");
         return -1;
     }
 
@@ -144,7 +147,7 @@ int recv_user_list(){
         memcpy(&net_port, buf + i, sizeof(short));
         short port = ntohs(net_port);
         porte_utenti[i / 2] = port;
-        printf("RICEVUTO UTENTE CON PORTA: %d\n", (int) port);
+        printf("[INFO] RICEVUTO UTENTE CON PORTA: %d\n", (int) port);
     }
 
 
@@ -158,7 +161,7 @@ int recv_available_card(){
     char buf[105];
     
     if(recv(l2u_socket.socket, buf, 105, MSG_WAITALL) < 0){
-        printf("ERRORE NELLA RICEZIONE DELLE INFORMAZIONI DELLA AVAILABLE CARD\n");
+        printf("[ERR] ERRORE NELLA RICEZIONE DELLE INFORMAZIONI DELLA AVAILABLE CARD\n");
         return -1;
     }
     
@@ -170,7 +173,7 @@ int recv_available_card(){
 
     strcpy(working_card.testoAttivita, buf + sizeof(int));
 
-    printf("RICEVUTA CARD:\n ID: %d, TESTO: %s\n", working_card.id, working_card.testoAttivita);
+    printf("[INFO] RICEVUTA CARD CON ID: %d\n       TESTO ATTIVITA: %s\n", working_card.id, working_card.testoAttivita);
     return 0;
 
 }
@@ -197,13 +200,17 @@ static int find_user_sock(int write_sd, socket_t* user_sockets, int len){
 static void* card_done_handler(void*){
 
     pthread_detach(pthread_self());
-    sleep(20);
+
+    //generazione di un tempo random da 20 secondi a 2 minuti
+    int time = (rand() % 100) + 21;
+    printf("[INFO] TEMPO RICHIESTO PER COMPLETARE LA CARD %d: %d SECONDI\n", working_card.id, time);
+    sleep(time);
 
     //dopo aver fatto sleep invio il messaggio di CARD_DONE
     pthread_mutex_lock(&u2l_socket_mutex);
 
     send_command(CARD_DONE_CMD, u2l_socket.socket);
-    printf("CARD %d COMPLETATA\n", working_card.id);
+    printf("[INFO] CARD %d COMPLETATA\n", working_card.id);
     
     //pulizia della working_card
     memset(&working_card, -1, sizeof(working_card));
@@ -270,7 +277,7 @@ int choose_user(){
 
             close(user_sockets[i].socket);
             //connessione fallita
-            printf("CONNESSIONE CON L'UTENTE CON PORTA: %d FALLITA\n", (int)porte_utenti[i]);
+            printf("[ERR] CONNESSIONE CON L'UTENTE CON PORTA: %d FALLITA\n", (int)porte_utenti[i]);
         }  
     }
     
@@ -301,10 +308,10 @@ int choose_user(){
         int select_ret = select(fd_max + 1, &read_ready_set, &write_ready_set, NULL, &timeout);
 
         if(select_ret == 0){
-            printf("TIMEOUT SCADUTO\n");
+            printf("[ERR] TIMEOUT SCADUTO\n");
             break;
         }else if(select_ret < 0){
-            printf("ERRORE NELLA SELECT\n");
+            printf("[ERR] ERRORE NELLA SELECT\n");
 
             //chiusura di tutti i socket e terminazione
             for(int i = 0; i < fd_max + 1; ++i){
@@ -326,7 +333,7 @@ int choose_user(){
                 int new_fd = accept(listener_socket.socket, (struct sockaddr*) &user_addr, &len);
 
                 if(new_fd < 0){
-                    printf("ERRORE NELLA ACCEPT\n");
+                    printf("[ERR] ERRORE NELLA ACCEPT\n");
                     continue;
                 }
 
@@ -348,7 +355,7 @@ int choose_user(){
                     FD_CLR(i, &connect_set);
                 else{
                     // se la connessione non è andata a buon fine rimuovo il descrittore da tutti i set
-                    printf("ERRORE NELLA CONNESSIONE CON L'UTENTE CON PORTA %d\n", (int)user_socket->porta);
+                    printf("[ERR] ERRORE NELLA CONNESSIONE CON L'UTENTE CON PORTA %d\n", (int)user_socket->porta);
                     close(i);
                     FD_CLR(i, &connect_set);
                     FD_CLR(i, &write_set);
@@ -369,7 +376,7 @@ int choose_user(){
                     if(transfer_state[i].sent_bytes == 6){
                         
                         int index = find_user_sock(i, user_sockets, num_utenti);
-                        printf("MANDATO COSTO %d E PORTA ALL'UTENTE CON PORTA %d\n", my_costo, (int)user_sockets[index].porta);
+                        printf("[INFO] MANDATO COSTO %d E PORTA ALL'UTENTE CON PORTA %d\n", my_costo, (int)user_sockets[index].porta);
                         
                         //chiusura del socket e pulizia del set
                         close(i);
@@ -385,7 +392,7 @@ int choose_user(){
                 else{
 
                     int index = find_user_sock(i, user_sockets, num_utenti);
-                    printf("ERRORE NELLA SEND DEL COSTO VERSO L'UTENTE CON PORTA: %d\n", (int) user_sockets[index].porta);
+                    printf("[ERR] ERRORE NELLA SEND DEL COSTO VERSO L'UTENTE CON PORTA: %d\n", (int) user_sockets[index].porta);
 
                     //la send è fallita chiudo il descrittore e pulisco il set in scrittura
                     close(i);
@@ -420,7 +427,7 @@ int choose_user(){
 
                         if(my_costo > costo || (my_costo == costo && my_port > port)) have_min_costo = 0;
 
-                        printf("RICEVUTO COSTO %d DALL'UTENTE CON PORTA %d\n", costo, (int) port);
+                        printf("[INFO] RICEVUTO COSTO %d DALL'UTENTE CON PORTA %d\n", costo, (int) port);
 
                         //chiusura del socket e pulizia dei set
                         close(i);
@@ -436,7 +443,7 @@ int choose_user(){
                     continue;
                 }else {
 
-                    printf("ERRORE NELLA RECV DEL COSTO E PORTA DA UN UTENTE\n");
+                    printf("[ERR] ERRORE NELLA RECV DEL COSTO E PORTA DA UN UTENTE\n");
 
                     //la recv è fallita chiudo il descrittore e pulisco il set in lettura
                     close(i);
@@ -464,6 +471,7 @@ int choose_user(){
     }
 
     pthread_mutex_lock(&u2l_socket_mutex);
+    printf("[INFO] ASSEGNATA CARD %d\n", working_card.id);
     //invio del comando di ACK_CARD
     send_command(ACK_CARD_CMD, u2l_socket.socket);
     pthread_mutex_unlock(&u2l_socket_mutex);

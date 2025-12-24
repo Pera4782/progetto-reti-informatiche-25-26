@@ -15,7 +15,7 @@ int create_socket(socket_t* sock, const unsigned short PORT, const int block ){
 
     sock->socket = socket(AF_INET, SOCK_STREAM, 0);
     if(sock->socket < 0){
-        printf("ERRORE NELLA CREAZIONE DEL SOCKET\n");
+        printf("[ERR] ERRORE NELLA CREAZIONE DEL SOCKET\n");
         return -1;
     }
 
@@ -32,17 +32,17 @@ int prepare_listener_socket(socket_t* sock, const unsigned short PORT ,const int
 
     //creazione del socket del server
     if(create_socket(sock, PORT, block) < 0){
-        printf("IMPOSSIBILE CREARE IL SOCKET\n");
+        printf("[ERR] IMPOSSIBILE CREARE IL SOCKET\n");
         return -1;
     }
 
     if(bind(sock->socket, (struct sockaddr*) &sock->addr, sizeof(struct sockaddr))){
-        printf("ERRORE NELLA BIND\n");
+        printf("[ERR] ERRORE NELLA BIND\n");
         return -1;
     }
 
     if(listen(sock->socket, REQUESTQUEUE) < 0){
-        printf("ERRORE NELLA LISTEN\n");
+        printf("[ERR] ERRORE NELLA LISTEN\n");
         return -1;
     }
 
@@ -53,7 +53,7 @@ int socket_connect(socket_t* sock){
     //connessione del socket
     if(connect(sock->socket, (struct sockaddr*) &sock->addr, sizeof(struct sockaddr)) < 0){ 
         close(sock->socket);
-        printf("ERRORE NELLA CONNECT\n");
+        printf("[ERR] ERRORE NELLA CONNECT\n");
         return -1;
     }
     return 0;
@@ -67,11 +67,9 @@ char recv_command(int sd){
     
     int ret = recv(sd, &command, 1, MSG_WAITALL);
     if(ret == -1){
-        printf("ERRORE NELLA RICEZIONE DEL COMANDO\n"); //errore effettivo
+        printf("[ERR] ERRORE NELLA RICEZIONE DEL COMANDO\n"); //errore effettivo
         return -1;
     }if(ret == 0) return -1; //utente disconnesso
-
-    printf("RICEVUTO COMANDO: %d\n", (int) command);
 
     return command;
 }
@@ -82,7 +80,7 @@ int send_command(const char command, const int sd){
 
     //invio del comando
     if(send(sd, &command, 1, 0) < 1){  
-        printf("ERRORE NELL'INVIO DEL COMANDO\n");
+        printf("[ERR] ERRORE NELL'INVIO DEL COMANDO\n");
         return -1;
     }
     

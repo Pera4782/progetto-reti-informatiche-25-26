@@ -33,7 +33,7 @@ static int create_card_command(){
     char testo[101];
     printf("inserisci testo attivita (max 100 caratteri): ");
     if(fgets(testo, 101, stdin) == NULL){
-        printf("ERRORE NELL'ACQUISIZIONE DEL TESTO\n");
+        printf("[ERR] ERRORE NELL'ACQUISIZIONE DEL TESTO\n");
         return -1;
     }
     testo[strcspn(testo, "\n")] = 0;
@@ -42,7 +42,7 @@ static int create_card_command(){
     printf("inserisci colonna (0, 1 , 2): ");
     scanf("%d", (int*) &colonna);
     if(colonna != 0 && colonna != 1 && colonna != 2){
-        printf("ERRORE NELL'INSERIMENTO DELLA COLONNA\n");
+        printf("[ERR] ERRORE NELL'INSERIMENTO DELLA COLONNA\n");
         return -1;
     }
 
@@ -50,7 +50,7 @@ static int create_card_command(){
     while(getchar() != '\n');
 
     if(create_card(u2l_socket.socket, id, testo, colonna) < 0){
-        printf("ERRORE NELLA CREAZIONE DELLA CARD\n");
+        printf("[ERR] ERRORE NELLA CREAZIONE DELLA CARD\n");
         return -1;
     }
 
@@ -68,7 +68,7 @@ static void* input_handler(void*){
 
         //acquisizione del comando da STDIN
         if(fgets(input, 81, stdin) == NULL){
-            printf("ERRORE NELL'ACQUISIZIONE DEL COMANDO\n");
+            printf("[ERR] ERRORE NELL'ACQUISIZIONE DEL COMANDO\n");
             exit(1);
         }
         //rimozione del newline nell'input
@@ -87,7 +87,7 @@ static void* input_handler(void*){
             quit(u2l_socket.socket);
             pthread_mutex_unlock(&u2l_socket_mutex);
 
-        }else printf("COMANDO NON RICONOSCIUTO\n");
+        }else printf("[ERR] COMANDO NON RICONOSCIUTO\n");
     }
 
     pthread_exit(NULL);
@@ -101,7 +101,7 @@ static void* request_handler(void*){
         char command = recv_command(l2u_socket.socket);
 
         if(command == -1){
-            printf("ERRORE NELLA RICEZIONE DEL COMANDO\n");
+            printf("[ERR] ERRORE NELLA RICEZIONE DEL COMANDO\n");
             exit(1);
         }
 
@@ -110,7 +110,7 @@ static void* request_handler(void*){
 
             case SEND_USER_LIST:
                 if(recv_user_list() < 0){
-                    printf("ERRORE NELLA RICEZIONE DELLA LISTA DEGLI UTENTI\n");
+                    printf("[ERR] ERRORE NELLA RICEZIONE DELLA LISTA DEGLI UTENTI\n");
                     exit(1);
                 }
                 break;
@@ -118,14 +118,14 @@ static void* request_handler(void*){
                 case AVAILABLE_CARD:
                 
                 if(recv_available_card() < 0){
-                    printf("ERRORE NELLA RICEZIONE DELLA CARD DISPONIBILE\n");
+                    printf("[ERR] ERRORE NELLA RICEZIONE DELLA CARD DISPONIBILE\n");
                     exit(1);
                 }
                 choose_user();
                 break;
 
             default:
-                printf("COMANDO NON RICONOSCIUTO\n");
+                printf("[ERR] COMANDO NON RICONOSCIUTO\n");
                 break;
         }
 
@@ -141,7 +141,7 @@ int main(int argc, char** argv) {
     srand(time(NULL));
     //creazione del socket per la comunicazione utente -> lavagna
     if(create_socket(&u2l_socket, LAVAGNAPORT, 1) < 0){
-        printf("ERRORE NELLA CREAZIONE DEL SOCKET PER LA COMUNICAZIONE CON LA LAVAGNA\n");
+        printf("[ERR] ERRORE NELLA CREAZIONE DEL SOCKET PER LA COMUNICAZIONE CON LA LAVAGNA\n");
         exit(1);
     }
     
@@ -150,13 +150,13 @@ int main(int argc, char** argv) {
 
     //acquisizione della porta da linea di comando
     if(argc == 1){
-        printf("FORMATO DI ESECUZIONE ERRATO, INSERIRE LA PORTA\n");
+        printf("[ERR] FORMATO DI ESECUZIONE ERRATO, INSERIRE LA PORTA\n");
         exit(1);
     }
     my_port = (unsigned short)atoi(argv[1]);
 
     if(my_port < 5679){
-        printf("NUMERO DI PORTA TROPPO BASSO, DEVE ESSERE ALMENO 5679\n");
+        printf("[ERR] NUMERO DI PORTA TROPPO BASSO, DEVE ESSERE ALMENO 5679\n");
         exit(1);
     }
 
@@ -167,7 +167,7 @@ int main(int argc, char** argv) {
     if(socket_connect(&u2l_socket) < 0) exit(1);
 
     if(hello(u2l_socket.socket, my_port) < 0){
-        printf("ERRORE NELLA HELLO\n");
+        printf("[ERR] ERRORE NELLA HELLO\n");
         exit(1);
     }
 
