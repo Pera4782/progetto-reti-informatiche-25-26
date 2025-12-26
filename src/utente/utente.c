@@ -121,7 +121,10 @@ static void* request_handler(void*){
                     printf("[ERR] ERRORE NELLA RICEZIONE DELLA CARD DISPONIBILE\n");
                     exit(1);
                 }
-                choose_user();
+                if(choose_user() < 0){
+                    printf("[ERR] ERRORE NELLA CHOOSE USER\n");
+                    exit(1);
+                }
                 break;
 
             default:

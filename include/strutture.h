@@ -13,8 +13,8 @@
 #define CARD_DONE_CMD 4
 
 //definizione dei numeri associati ai comandi da parte della lavagna
-#define SEND_USER_LIST 0
-#define AVAILABLE_CARD 1
+#define SEND_USER_LIST (1 << 0)
+#define AVAILABLE_CARD (1 << 1)
 
 #include<netinet/in.h>
 
@@ -40,6 +40,11 @@ struct utente_struct {
     int l2u_sd;
     int doingCardId;
     struct utente_struct* nextUtente;
+
+    pthread_mutex_t l2u_command_mutex;
+    pthread_cond_t l2u_command_condition;
+    int has_pending_command;
+
 };
 typedef struct utente_struct utente_t;
 

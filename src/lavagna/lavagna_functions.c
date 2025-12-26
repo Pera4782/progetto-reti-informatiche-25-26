@@ -276,6 +276,9 @@ void insert_utente(const unsigned short PORT, int u2l_sd, int l2u_sd){
     lavagna.utenti = utente;
     utente->nextUtente = tmp;
 
+    pthread_mutex_init(&utente->l2u_command_mutex, NULL);
+    pthread_cond_init(&utente->l2u_command_condition, NULL);
+    utente->has_pending_command = 0;
 }
 
 
@@ -350,8 +353,84 @@ static void serialize_ports(char* buf){
 
 }
 
+void wakeup_command_senders(const int command){
 
-//TODO ottimizzazione
+    utente_t* utente = lavagna.utenti;
+    while(utente){
+
+        pthread_mutex_lock(&utente->l2u_command_mutex);
+
+        utente->has_pending_command |= command;
+
+        pthread_cond_broadcast(&utente->l2u_command_condition);
+        pthread_mutex_unlock(&utente->l2u_command_mutex);
+
+        utente = utente->nextUtente;
+    }
+
+}
+
+void send_user_list(utente_t* utente){
+
+    pthread_mutex_lock(&mutex_lavagna);
+
+    int LEN = lavagna.numUtenti * sizeof(short);
+    char buf[LEN];
+    serialize_ports(buf);
+
+    pthread_mutex_unlock(&mutex_lavagna);
+    
+    int failed = 0;
+
+    //per ogni invio si controlla se fallisce
+    if(send_command(SEND_USER_LIST, utente->l2u_sd) < 0) failed = 1;
+    
+    int net_len = htonl(LEN);
+    //invio della lunghezza
+    if(!failed && send(utente->l2u_sd, &net_len, sizeof(int), 0) < 0) failed = 1;
+
+    //invio del buffer contenente le porte
+    if(!failed && send(utente->l2u_sd, buf, LEN, 0) < 0) failed = 1;
+
+
+    if(failed)
+        printf("[ERR] ERRORE NELL'INVIO DELLE PORTE ALL'UTENTE CON PORTA: %d\n", (int) utente->PORT);
+    else
+        printf("[INFO] PORTE INVIATE ALL'UTENTE CON PORTA: %d\n", (int) utente->PORT);
+
+}
+
+
+void send_available_card(utente_t* utente){
+
+    //serializzazione della card
+    pthread_mutex_lock(&mutex_lavagna);
+
+    lavagna.working = 1;
+
+    char buf[TEXTLEN + 1 + sizeof(int)];
+    serialize_card(*(lavagna.colonne[TODO]), buf);
+
+    pthread_mutex_unlock(&mutex_lavagna);
+
+    int failed = 0;
+
+    //invio del comando AVAILABLE_CARD
+    if(send_command(AVAILABLE_CARD, utente->l2u_sd) < 0) failed = 1;
+
+    //invio del buffer contenente la card
+    if(!failed && send(utente->l2u_sd, buf, TEXTLEN + 1 + sizeof(int), 0) < TEXTLEN + 1 + sizeof(int)) failed = 1;
+
+    if(failed)
+        printf("[ERR] ERRORE NELL'INVIO DELLA AVAILABLE CARD ALL'UTENTE CON PORTA: %d\n", (int) utente->PORT);
+    else
+        printf("[INFO] AVAILABLE CARD INVIATA ALL'UTENTE CON PORTA: %d\n", (int) utente->PORT);
+    
+}
+
+
+/*
+
 void send_user_list(){
 
     //preparazione del buffer contenente tutte le porte da mandare a tutti gli utenti
@@ -450,3 +529,4 @@ void send_available_card(){
     //se gli utenti rimasti (per via di eventuali errori) sono 2 o più iniziano a lavorare
     if(lavagna.numUtenti >= 2) lavagna.working = 1;
 }
+*/

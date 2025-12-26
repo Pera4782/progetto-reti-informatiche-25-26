@@ -89,13 +89,22 @@ utente_t* remove_utente(int u2l_sd);
 void destroy_utente(utente_t*);
 
 /**
- * @brief funzione per mandare la lista delle porte degli utenti a tutti gli utenti
+ * @brief funzione per mandare la lista delle porte degli utenti ad un utente
+ * @param utente utente a cui si vuole mandare la lista delle porte
  */
-void send_user_list();
+void send_user_list(utente_t*);
 
 /**
- * @brief funzione per mandare la card disponibile
+ * @brief funzione per mandare la card disponibile ad un utente
+ * @param utente utente a cui si vuole mandare la available card
  */
-void send_available_card();
+void send_available_card(utente_t*);
+
+/**
+ * @brief funzione per risvegliare i thread che mandano i comandi agli utenti
+ * @param command SEND_USER_LIST o AVAILABLE_CARD
+ */
+void wakeup_command_senders(const int);
+
 
 #endif

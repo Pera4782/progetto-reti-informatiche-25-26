@@ -37,7 +37,7 @@ static void* request_handler(void* arg){
                 break;
             
             case ACK_CARD_CMD:
-                ack_card_handler(u2l_sd);
+                if(ack_card_handler(u2l_sd) < 0) quitted = 1;
                 break;
 
             case CARD_DONE_CMD:
@@ -64,8 +64,9 @@ static void* request_handler(void* arg){
         }
 
         destroy_utente(u);
-        send_user_list();
-        if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL && !lavagna.working) send_available_card();
+        wakeup_command_senders(SEND_USER_LIST);
+        if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL && !lavagna.working) 
+            wakeup_command_senders(AVAILABLE_CARD);
     }
     
     pthread_mutex_unlock(&mutex_lavagna);

@@ -1,6 +1,50 @@
 #include "../../include/lavagna/request_handlers.h"
 
 
+void* l2u_command_sender(void* arg){
+
+    pthread_detach(pthread_self());
+
+    int l2u_sd = *((int*) arg);
+    free(arg);
+
+    //cerco le info dell'utente corretto e me le salvo
+    pthread_mutex_lock(&mutex_lavagna);
+    
+    utente_t* utente = lavagna.utenti;
+    while(utente){
+        if(utente->l2u_sd == l2u_sd) break;
+        utente = utente->nextUtente;
+    }
+
+    pthread_mutex_unlock(&mutex_lavagna);
+
+    while(1){
+        //mi blocco in attesa di dover mandare un comando
+        pthread_mutex_lock(&utente->l2u_command_mutex);
+        while(!utente->has_pending_command) 
+            pthread_cond_wait(&utente->l2u_command_condition, &utente->l2u_command_mutex);
+
+
+        //controllo il comando da eseguire
+        int command = -1;
+        if(utente->has_pending_command & SEND_USER_LIST){
+            command = SEND_USER_LIST;
+            utente->has_pending_command &= ~SEND_USER_LIST;
+        }else if(utente->has_pending_command & AVAILABLE_CARD){
+            command = AVAILABLE_CARD;
+            utente->has_pending_command &= ~AVAILABLE_CARD;
+        }
+
+        pthread_mutex_unlock(&utente->l2u_command_mutex);
+
+        //appena mi sblocco controllo il comando che devo mandare e lo faccio
+        if(command == SEND_USER_LIST) send_user_list(utente);
+        else if(command == AVAILABLE_CARD) send_available_card(utente); 
+
+    }
+}
+
 int hello_handler(const int u2l_sd){
 
 
@@ -64,10 +108,20 @@ int hello_handler(const int u2l_sd){
     
     printf("[INFO] UTENTE CON PORTA: %d REGISTRATO\n", (int) PORT);
     
-    send_user_list();
+
+    //creazione del thread che si occuperà di mandare SEND_USER_LIST e AVAILABLE_CARD all'utente
+    //appena registrato
+    int* thread_arg = (int*) malloc(sizeof(int));
+    *thread_arg = l2u_sock.socket;
+    pthread_t l2u_command_sending_t;
+    pthread_create(&l2u_command_sending_t, NULL, l2u_command_sender, thread_arg);
+
+    //mando il comando si SEND_USER_LIST a tutti i thread 
+    wakeup_command_senders(SEND_USER_LIST);
 
     //se gli utenti sono 2 o più, c'è una card in TODO e nessun utente sta lavorando su una card si manda la card disponibile
-    if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL && !lavagna.working) send_available_card();
+    if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL && !lavagna.working)
+        wakeup_command_senders(AVAILABLE_CARD);
     
     pthread_mutex_unlock(&mutex_lavagna);
 
@@ -129,7 +183,8 @@ int create_card_handler(const int sd){
     show_lavagna();
 
     //se gli utenti sono 2 o più, c'è una card in TODO e nessun utente sta lavorando su una card si manda la card disponibile
-    if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL && !lavagna.working) send_available_card();
+    if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL && !lavagna.working)
+        wakeup_command_senders(AVAILABLE_CARD);
 
     pthread_mutex_unlock(&mutex_lavagna);
 
@@ -138,9 +193,42 @@ int create_card_handler(const int sd){
 
 
 
-void ack_card_handler(const int u2l_sd){
+int ack_card_handler(const int u2l_sd){
 
+    //ricevo l'id della card ackata
+    int net_id;
+    if(recv(u2l_sd, &net_id, sizeof(int), MSG_WAITALL) < 0){
+        printf("[ERR] ERRORE NELLA RICEZIONE DELL'ACKED CARD\n");
+        return -1;
+    }
+
+    int id = ntohl(net_id);
+
+    //controllo se la card è gia stata ACKATA
     pthread_mutex_lock(&mutex_lavagna);
+    colonna_t colonna = find_card(id);
+    
+
+    if(colonna != TODO){
+        char already_acked = 1;
+        if(send(u2l_sd, &already_acked, 1, 0) < 1){
+            printf("[ERR] ERRORE NELLA RISPOSTA A ACK CARD\n");
+            pthread_mutex_unlock(&mutex_lavagna);
+            return -1;
+        }
+        printf("[WRN] CARD GIA ACKATA\n");
+        pthread_mutex_unlock(&mutex_lavagna);
+        return 0;
+    }
+
+    char already_acked = 0;
+    if(send(u2l_sd, &already_acked, 1, 0) < 1){
+        printf("[ERR] ERRORE NELLA RISPOSTA A ACK CARD\n");
+        pthread_mutex_unlock(&mutex_lavagna);
+        return -1;
+    }
+
+    
     // ricerca dell'utente con il descrittore passato per argomento
     utente_t* utente = lavagna.utenti;
     while(utente) {
@@ -149,10 +237,10 @@ void ack_card_handler(const int u2l_sd){
     }
 
     //muovo la card nella colonna DOING e la assegno all'utente
-    card_t* work = remove_card(lavagna.colonne[TODO]->id);
+    card_t* work = remove_card(id);
 
     utente->doingCardId = work->id;
-    //TODO aggiornare timestamp
+    time(&work->ultimaModifica);
 
     work->colonna = DOING;
     insert_card(work);
@@ -162,7 +250,7 @@ void ack_card_handler(const int u2l_sd){
     show_lavagna();
 
     pthread_mutex_unlock(&mutex_lavagna);
-
+    return 0;
 }
 
 
@@ -185,14 +273,15 @@ void card_done_handler(const int u2l_sd){
     completed_card->colonna = DONE;
     insert_card(completed_card);
 
-    //TODO aggiornare timestamp
+    time(&completed_card->ultimaModifica);
 
     lavagna.working = 0;
 
     printf("[INFO] CARD %d COMPLETATA DALL'UTENTE CON PORTA: %d\n", completed_card->id, (int) utente->PORT);
     show_lavagna();
 
-    if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL) send_available_card();
-
+    if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL)
+        wakeup_command_senders(AVAILABLE_CARD);
+    
     pthread_mutex_unlock(&mutex_lavagna);
 }

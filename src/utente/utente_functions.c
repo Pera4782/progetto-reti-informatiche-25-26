@@ -471,9 +471,37 @@ int choose_user(){
     }
 
     pthread_mutex_lock(&u2l_socket_mutex);
-    printf("[INFO] ASSEGNATA CARD %d\n", working_card.id);
+
     //invio del comando di ACK_CARD
     send_command(ACK_CARD_CMD, u2l_socket.socket);
+
+
+    //invio dell'id della card
+    int net_id = htonl(working_card.id);
+    if(send(u2l_socket.socket, &net_id, sizeof(int), 0) < sizeof(int)){
+        printf("[ERR] ERRORE DURANTE L'INVIO DELL'ID DELLA CARD DA ACKARE\n");
+        pthread_mutex_unlock(&u2l_socket_mutex);
+        return -1;
+    }
+
+
+    //controllo se la card di cui sto mandando l'ACK è gia stata ACKATA 
+    char already_acked;
+    if(recv(u2l_socket.socket, &already_acked, 1, MSG_WAITALL) < 0){
+        printf("[ERR] ERRORE NELLA RICEZIONE DELLA RISPOSTA A ACK CARD\n");
+        pthread_mutex_unlock(&u2l_socket_mutex);
+        return -1;
+    }
+
+    //se la card è gia stata ackata non faccio niente
+    if(already_acked){
+        printf("[WRN] CARD GIA ACKATA\n");
+        pthread_mutex_unlock(&u2l_socket_mutex);
+        return 0;
+    }
+
+    
+    printf("[INFO] ASSEGNATA CARD %d\n", working_card.id);
     pthread_mutex_unlock(&u2l_socket_mutex);
 
 
