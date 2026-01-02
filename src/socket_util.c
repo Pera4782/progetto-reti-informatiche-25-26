@@ -4,7 +4,7 @@
 
 #define REQUESTQUEUE 256
 
-int create_socket(socket_t* sock, const unsigned short PORT, const int block ){
+int create_socket(socket_t* sock, uint16_t PORT, int block ){
 
     strcpy(sock->IP, "127.0.0.1");      //inizializzazione del socket
     sock->porta = PORT;
@@ -28,7 +28,7 @@ int create_socket(socket_t* sock, const unsigned short PORT, const int block ){
 }
 
 
-int prepare_listener_socket(socket_t* sock, const unsigned short PORT ,const int block){
+int prepare_listener_socket(socket_t* sock, uint16_t PORT , int block){
 
     //creazione del socket del server
     if(create_socket(sock, PORT, block) < 0){
@@ -61,7 +61,7 @@ int socket_connect(socket_t* sock){
 
 
 
-char recv_command(int sd){
+int recv_command(int sd){
     
     char command;
     
@@ -69,14 +69,14 @@ char recv_command(int sd){
     if(ret == -1){
         printf("[ERR] ERRORE NELLA RICEZIONE DEL COMANDO\n"); //errore effettivo
         return -1;
-    }if(ret == 0) return -1; //utente disconnesso
+    }if(ret == 0) return -1; //disconnessione
 
-    return command;
+    return (int)command;
 }
 
 
 
-int send_command(const char command, const int sd){
+int send_command( char command,  int sd){
 
     //invio del comando
     if(send(sd, &command, 1, 0) < 1){  

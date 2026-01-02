@@ -12,7 +12,7 @@ void init_lavagna(){
     for(int i = 0; i < NUMCOLONNE; ++i) lavagna.colonne[i] = NULL;
     lavagna.utenti = NULL;
     lavagna.numUtenti = 0;
-    lavagna.working = 0;
+    lavagna.state = NONE;
 
     pthread_mutex_init(&mutex_lavagna, NULL);
 }
@@ -47,8 +47,8 @@ static void stampa_card_header(int id){
     }
 
     int cifre = quante_cifre(id);
-    const int LEFTSPACES = (RIGALENGTH - cifre) / 2;    
-    const int RIGHTSPACES = (cifre % 2 == 0)? LEFTSPACES : LEFTSPACES + 1; // calcolo degli spazi a sinistra e destra per "centrare" l'id della card
+     int LEFTSPACES = (RIGALENGTH - cifre) / 2;    
+     int RIGHTSPACES = (cifre % 2 == 0)? LEFTSPACES : LEFTSPACES + 1; // calcolo degli spazi a sinistra e destra per "centrare" l'id della card
     
     printf(" ");
     for(int i = 0; i < LEFTSPACES; ++i) printf(" ");
@@ -153,7 +153,7 @@ void destroy_lavagna(){
 }
 
 
-card_t* create_card(const char* testo, const int id, colonna_t colonna){
+card_t* create_card( char* testo, uint32_t id, colonna_t colonna){
 
     if(strlen(testo) > TEXTLEN){
         printf("[ERR] TESTO TROPPO LUNGO, MASSIMO 100 CARATTERI\n");
@@ -201,7 +201,7 @@ void insert_card(card_t* card){
 
 
 
-colonna_t find_card(const int id){
+colonna_t find_card(uint32_t id){
 
     for(int i = 0; i < NUMCOLONNE; ++i){
         card_t* lista = lavagna.colonne[i];
@@ -214,7 +214,7 @@ colonna_t find_card(const int id){
 }
 
 
-card_t* remove_card(const int id){
+card_t* remove_card(uint32_t id){
 
     for(int i = 0; i < NUMCOLONNE; ++i){
 
@@ -253,8 +253,8 @@ card_t* remove_card(const int id){
  */
 static void serialize_card(card_t card, char* buf){
 
-    int net_card_id = htonl(card.id);
-    memcpy(buf, &net_card_id, sizeof(int));
+    uint32_t net_card_id = htonl(card.id);
+    memcpy(buf, &net_card_id, sizeof(uint32_t));
     memcpy(buf + sizeof(int), card.testoAttivita, TEXTLEN + 1);
 
 }
@@ -262,7 +262,7 @@ static void serialize_card(card_t card, char* buf){
 
 
 
-void insert_utente(const unsigned short PORT, int u2l_sd, int l2u_sd){
+void insert_utente(uint16_t PORT, int u2l_sd, int l2u_sd, pthread_t command_sender){
 
     utente_t* utente = (utente_t*) malloc(sizeof(utente_t));
     utente->PORT = PORT;
@@ -279,10 +279,12 @@ void insert_utente(const unsigned short PORT, int u2l_sd, int l2u_sd){
     pthread_mutex_init(&utente->l2u_command_mutex, NULL);
     pthread_cond_init(&utente->l2u_command_condition, NULL);
     utente->has_pending_command = 0;
+
+    utente->command_sender = command_sender;
 }
 
 
-int find_utente(const unsigned short PORT){
+int find_utente(uint16_t PORT){
 
     utente_t* lista = lavagna.utenti;
     while(lista){
@@ -344,16 +346,16 @@ static void serialize_ports(char* buf){
     utente_t* utenti = lavagna.utenti;
     while(utenti){
 
-        short net_port = htons(utenti->PORT);
-        memcpy(buf, &net_port, sizeof(short));
-        buf += sizeof(short);
+        uint16_t net_port = htons(utenti->PORT);
+        memcpy(buf, &net_port, sizeof(uint16_t));
+        buf += sizeof(uint16_t);
 
         utenti = utenti->nextUtente;
     }
 
 }
 
-void wakeup_command_senders(const int command){
+void wakeup_command_senders(int command){
 
     utente_t* utente = lavagna.utenti;
     while(utente){
@@ -374,7 +376,7 @@ void send_user_list(utente_t* utente){
 
     pthread_mutex_lock(&mutex_lavagna);
 
-    int LEN = lavagna.numUtenti * sizeof(short);
+    uint32_t LEN = lavagna.numUtenti * sizeof(uint16_t);
     char buf[LEN];
     serialize_ports(buf);
 
@@ -385,7 +387,7 @@ void send_user_list(utente_t* utente){
     //per ogni invio si controlla se fallisce
     if(send_command(SEND_USER_LIST, utente->l2u_sd) < 0) failed = 1;
     
-    int net_len = htonl(LEN);
+    uint32_t net_len = htonl(LEN);
     //invio della lunghezza
     if(!failed && send(utente->l2u_sd, &net_len, sizeof(int), 0) < 0) failed = 1;
 
@@ -406,7 +408,7 @@ void send_available_card(utente_t* utente){
     //serializzazione della card
     pthread_mutex_lock(&mutex_lavagna);
 
-    lavagna.working = 1;
+    lavagna.state = WAITING_FOR_ACK;
 
     char buf[TEXTLEN + 1 + sizeof(int)];
     serialize_card(*(lavagna.colonne[TODO]), buf);
@@ -426,107 +428,95 @@ void send_available_card(utente_t* utente){
     else
         printf("[INFO] AVAILABLE CARD INVIATA ALL'UTENTE CON PORTA: %d\n", (int) utente->PORT);
     
+    pthread_mutex_lock(&acked_card_mutex);
+
+    // inizializzazione per la timed wait
+    struct timespec ts;
+    time_t now = time(NULL);
+    
+    ts.tv_sec = now + 15;
+    ts.tv_nsec = 0;
+
+    int ret = 0;
+    while(card_acked == -1 && !ret)
+        ret = pthread_cond_timedwait(&acked_card_cond, &acked_card_mutex, &ts);
+
+    if(ret == ETIMEDOUT){
+        //il tempo è scaduto quindi la card non è stata ackata rifaccio SEND_USER_LIST E AVAILABLE_CARD
+        pthread_mutex_lock(&utente->l2u_command_mutex);
+        utente->has_pending_command |= (SEND_USER_LIST | AVAILABLE_CARD);
+        pthread_mutex_unlock(&utente->l2u_command_mutex);
+    }
+    
+    pthread_mutex_unlock(&acked_card_mutex);
+
 }
 
 
-/*
+void send_ping(utente_t* utente){
 
-void send_user_list(){
+    // inizializzazione per la timed wait
+    struct timespec ts;
+    time_t now = time(NULL);
+    
+    ts.tv_sec = now + 90;
+    ts.tv_nsec = 0;
 
-    //preparazione del buffer contenente tutte le porte da mandare a tutti gli utenti
-    int LEN = lavagna.numUtenti * sizeof(short);
-    char* buf = (char*) malloc(LEN);
+    pthread_mutex_lock(&utente->l2u_command_mutex);
+    
+    //mi metto in attesa o che il request_handler mi svegli o che scatti il timeout
+    utente->has_pending_command |= WAITING_ON_PING;
 
-    serialize_ports(buf);
+    int ret = 0;
+    while(!(utente->has_pending_command & CARD_DONE_WAKE_UP || utente->has_pending_command & USER_QUITTED) && !ret) 
+        ret = pthread_cond_timedwait(&utente->l2u_command_condition, &utente->l2u_command_mutex, &ts);
 
-    int failed = 0;
+    utente->has_pending_command &= ~WAITING_ON_PING;
 
-    //mando a tutti gli utenti la lista serializzata delle porte
-    utente_t* utenti = lavagna.utenti;
-    while(utenti){
+    if(ret == ETIMEDOUT){
+        //il tempo è scaduto devo mandare il ping
+        send_command(PING_USER, utente->l2u_sd);
+        printf("[INFO] PING INVIATO ALL'UTENTE CON PORTA: %d\n", (int) utente->PORT);
 
-        failed = 0;
 
-        //per ogni invio si controlla se fallisce in caso si rimuove l'utente e si riprocede con l'invio
-        if(send_command(SEND_USER_LIST, utenti->l2u_sd) < 0) failed = 1;
-        
-        int net_len = htonl(LEN);
-        //invio della lunghezza
-        if(!failed && send(utenti->l2u_sd, &net_len, sizeof(int), 0) < 0) failed = 1;
+        //inizializzazione delle strutture per la select
+        struct timeval timeout;
+        timeout.tv_sec = 30;
+        timeout.tv_usec = 0;
 
-        //invio del buffer contenente le porte
-        if(!failed && send(utenti->l2u_sd, buf, LEN, 0) < 0) failed = 1;
+        fd_set read;
+        FD_ZERO(&read);
+        FD_SET(utente->l2u_sd, &read);
+        int fd_max = utente->l2u_sd;
 
-        //gestione del caso di errore con la rimozione dell'utente
-        if(failed){
-            printf("[ERR] ERRORE NELL'INVIO DELLE PORTE ALL'UTENTE CON PORTA: %d, RIMOZIONE DELL'UTENTE E REINVIO\n", (int) utenti->PORT);
-            utente_t *u = remove_utente(utenti->u2l_sd);
-            
-            //gestione del caso dove l'utente disconnesso stava lavorando a una card
+        //aspetto 30 secondi in ascolto
+        int select_ret = select(fd_max + 1, &read, NULL, NULL, &timeout);
 
-            if(u->doingCardId != -1){
-                card_t* work = remove_card(u->doingCardId);
-                work->colonna = TODO;
-                insert_card(work);
-                show_lavagna();
-                lavagna.working = 0;
+        if(select_ret == 0){
+            //timeout scaduto spengo il socket u2l in modo che il request_handler si svegli e rimuova l'utente
+            shutdown(utente->u2l_sd, SHUT_RDWR);
+            //termino il command sender
+            pthread_exit(NULL);
+        }else{
+            //è arrivato il pong
+            char pong;
+            if(recv(utente->l2u_sd, &pong, 1, MSG_WAITALL) < 1){
+                printf("[ERR] ERRORE NELLA RICEZIONE DEL PONG\n");
+                shutdown(utente->u2l_sd, SHUT_RDWR);
+                return;
             }
-
-            
-            destroy_utente(u);
-            //reinizializzazione dei parametri per scorrere la lista e del buffer da mandare
-            utenti = lavagna.utenti;
-            LEN = lavagna.numUtenti * sizeof(short);
-            free(buf);
-            buf = (char*) malloc(LEN);
-            serialize_ports(buf);
-            continue;
+            printf("[INFO] PONG RICEVUTO\n");
+        }
+    }else {
+        
+        if(utente->has_pending_command & USER_QUITTED){
+            pthread_mutex_unlock(&utente->l2u_command_mutex);
+            pthread_exit(NULL);
         }
 
-        printf("[INFO] PORTE INVIATE ALL'UTENTE CON PORTA: %d\n", utenti->PORT);
-        utenti = utenti->nextUtente;
+        //il request handler mi ha svegliato
+        utente->has_pending_command &= ~ CARD_DONE_WAKE_UP;
     }
 
-    free(buf);
+    pthread_mutex_unlock(&utente->l2u_command_mutex);
 }
-
-
-
-void send_available_card(){
-
-    char buf[105];
-    serialize_card(*(lavagna.colonne[TODO]), buf);
-
-    utente_t* utenti = lavagna.utenti;
-
-    while(utenti){
-
-        utente_t *next_utente = utenti->nextUtente;
-
-        if(send_command(AVAILABLE_CARD, utenti->l2u_sd) < 0){
-            
-            printf("[ERR] ERRORE NELL'INVIO DEL COMANDO ALL'UTENTE CON PORTA: %d, RIMOZIONE DELL'UTENTE\n", (int) utenti->PORT);
-            utente_t* u = remove_utente(utenti->u2l_sd);
-            destroy_utente(u);
-            utenti = next_utente;
-            continue;
-        }
-
-        if(send(utenti->l2u_sd, buf, TEXTLEN + 1 + sizeof(int), 0) < 0){
-            
-            printf("[ERR] ERRORE NELL'INVIO DELLA CARD ALL'UTENTE CON PORTA: %d, RIMOZIONE DELL'UTENTE\n", (int) utenti->PORT);
-            utente_t* u = remove_utente(utenti->u2l_sd);
-            destroy_utente(u);
-            utenti = next_utente;
-            continue;
-        }
-
-        printf("[INFO] AVAILABLE CARD INVIATA ALL'UTENTE CON PORTA: %d\n", (int) utenti->PORT);
-
-        utenti = next_utente;
-    }
-
-    //se gli utenti rimasti (per via di eventuali errori) sono 2 o più iniziano a lavorare
-    if(lavagna.numUtenti >= 2) lavagna.working = 1;
-}
-*/

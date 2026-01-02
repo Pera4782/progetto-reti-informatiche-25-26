@@ -10,9 +10,9 @@ socket_t l2u_socket; // socket per ricevere dalla lavagna SEND_USER_LIST e AVAIL
 
 socket_t listener_socket; // socket utilizzato per ricevere richieste di connessione da altri utenti e lavagna
 
-short* porte_utenti = NULL; // lista delle porte degli utenti registrati
-int num_utenti = 0;
-short my_port = -1;
+uint16_t* porte_utenti = NULL; // lista delle porte degli utenti registrati
+uint32_t num_utenti = 0;
+uint16_t my_port = -1;
 
 card_t working_card; // card ricevuta dalla lavagna in AVAILABLE_CARD
 
@@ -23,7 +23,7 @@ card_t working_card; // card ricevuta dalla lavagna in AVAILABLE_CARD
 static int create_card_command(){
     
     //acquisizione dei vari parametri
-    int id;
+    uint32_t id;
     printf("inserisci id: ");
     scanf("%d", &id);
 
@@ -32,24 +32,13 @@ static int create_card_command(){
 
     char testo[101];
     printf("inserisci testo attivita (max 100 caratteri): ");
-    if(fgets(testo, 101, stdin) == NULL){
+    if(fgets(testo, TEXTLEN + 1, stdin) == NULL){
         printf("[ERR] ERRORE NELL'ACQUISIZIONE DEL TESTO\n");
         return -1;
     }
     testo[strcspn(testo, "\n")] = 0;
 
-    colonna_t colonna;
-    printf("inserisci colonna (0, 1 , 2): ");
-    scanf("%d", (int*) &colonna);
-    if(colonna != 0 && colonna != 1 && colonna != 2){
-        printf("[ERR] ERRORE NELL'INSERIMENTO DELLA COLONNA\n");
-        return -1;
-    }
-
-    //pulizia del buffer
-    while(getchar() != '\n');
-
-    if(create_card(u2l_socket.socket, id, testo, colonna) < 0){
+    if(create_card(u2l_socket.socket, id, testo, TODO) < 0){
         printf("[ERR] ERRORE NELLA CREAZIONE DELLA CARD\n");
         return -1;
     }
@@ -62,6 +51,7 @@ static int create_card_command(){
 */
 static void* input_handler(void*){
 
+    pthread_detach(pthread_self());
     char input[81];
 
     while (1){
@@ -69,7 +59,7 @@ static void* input_handler(void*){
         //acquisizione del comando da STDIN
         if(fgets(input, 81, stdin) == NULL){
             printf("[ERR] ERRORE NELL'ACQUISIZIONE DEL COMANDO\n");
-            exit(1);
+            _exit(1);
         }
         //rimozione del newline nell'input
         input[strcspn(input, "\n")] = 0;
@@ -78,13 +68,13 @@ static void* input_handler(void*){
         if(strcmp(input, "CREATE_CARD") == 0){
             
             pthread_mutex_lock(&u2l_socket_mutex);
-            create_card_command();
+            if(create_card_command() < 0) _exit(1);
             pthread_mutex_unlock(&u2l_socket_mutex);
         
         }else if(strcmp(input, "QUIT") == 0){
 
             pthread_mutex_lock(&u2l_socket_mutex);
-            quit(u2l_socket.socket);
+            if(quit(u2l_socket.socket) < 0) _exit(1);
             pthread_mutex_unlock(&u2l_socket_mutex);
 
         }else printf("[ERR] COMANDO NON RICONOSCIUTO\n");
@@ -96,14 +86,12 @@ static void* input_handler(void*){
 
 static void* request_handler(void*){
 
+    pthread_detach(pthread_self());
     while(1){
 
-        char command = recv_command(l2u_socket.socket);
-
-        if(command == -1){
-            printf("[ERR] ERRORE NELLA RICEZIONE DEL COMANDO\n");
-            exit(1);
-        }
+        int command = recv_command(l2u_socket.socket);
+        if(command == -1) _exit(1);
+        
 
 
         switch(command){
@@ -111,20 +99,29 @@ static void* request_handler(void*){
             case SEND_USER_LIST:
                 if(recv_user_list() < 0){
                     printf("[ERR] ERRORE NELLA RICEZIONE DELLA LISTA DEGLI UTENTI\n");
-                    exit(1);
+                    _exit(1);
                 }
                 break;
                 
-                case AVAILABLE_CARD:
+            case AVAILABLE_CARD:
                 
                 if(recv_available_card() < 0){
                     printf("[ERR] ERRORE NELLA RICEZIONE DELLA CARD DISPONIBILE\n");
-                    exit(1);
+                    _exit(1);
                 }
                 if(choose_user() < 0){
                     printf("[ERR] ERRORE NELLA CHOOSE USER\n");
-                    exit(1);
+                    _exit(1);
                 }
+                break;
+
+            case PING_USER:
+
+                if(send_pong() < 0){
+                    printf("ERRORE NELLA SEND PONG\n");
+                    _exit(1);
+                }
+
                 break;
 
             default:
@@ -145,7 +142,7 @@ int main(int argc, char** argv) {
     //creazione del socket per la comunicazione utente -> lavagna
     if(create_socket(&u2l_socket, LAVAGNAPORT, 1) < 0){
         printf("[ERR] ERRORE NELLA CREAZIONE DEL SOCKET PER LA COMUNICAZIONE CON LA LAVAGNA\n");
-        exit(1);
+        _exit(1);
     }
     
     //inizializzazione semafori
@@ -154,24 +151,24 @@ int main(int argc, char** argv) {
     //acquisizione della porta da linea di comando
     if(argc == 1){
         printf("[ERR] FORMATO DI ESECUZIONE ERRATO, INSERIRE LA PORTA\n");
-        exit(1);
+        _exit(1);
     }
-    my_port = (unsigned short)atoi(argv[1]);
+    my_port = (uint16_t) atoi(argv[1]);
 
     if(my_port < 5679){
         printf("[ERR] NUMERO DI PORTA TROPPO BASSO, DEVE ESSERE ALMENO 5679\n");
-        exit(1);
+        _exit(1);
     }
 
     //ignorare il segnale SIGING (CTRL + C)
     signal(SIGINT, SIG_IGN);
 
     //connessione al socket della lavagna e HELLO
-    if(socket_connect(&u2l_socket) < 0) exit(1);
+    if(socket_connect(&u2l_socket) < 0) _exit(1);
 
     if(hello(u2l_socket.socket, my_port) < 0){
         printf("[ERR] ERRORE NELLA HELLO\n");
-        exit(1);
+        _exit(1);
     }
 
     //creazione del thread che riceverà richieste dalla lavagna
@@ -182,9 +179,6 @@ int main(int argc, char** argv) {
     pthread_t input_handling_t;
     pthread_create(&input_handling_t, NULL, input_handler, NULL);
 
-
-    pthread_join(input_handling_t, NULL);
-    pthread_join(request_handling_t, NULL);
     pthread_exit(NULL);
     return 0;
 }

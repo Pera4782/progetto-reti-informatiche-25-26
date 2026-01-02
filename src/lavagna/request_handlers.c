@@ -3,8 +3,6 @@
 
 void* l2u_command_sender(void* arg){
 
-    pthread_detach(pthread_self());
-
     int l2u_sd = *((int*) arg);
     free(arg);
 
@@ -19,48 +17,58 @@ void* l2u_command_sender(void* arg){
 
     pthread_mutex_unlock(&mutex_lavagna);
 
+    if(!utente) pthread_exit(NULL);
+
     while(1){
+
         //mi blocco in attesa di dover mandare un comando
         pthread_mutex_lock(&utente->l2u_command_mutex);
-        while(!utente->has_pending_command) 
+        while(utente->has_pending_command == 0) 
             pthread_cond_wait(&utente->l2u_command_condition, &utente->l2u_command_mutex);
 
 
         //controllo il comando da eseguire
         int command = -1;
-        if(utente->has_pending_command & SEND_USER_LIST){
+
+        if(utente->has_pending_command & USER_QUITTED){
+            return NULL;
+        }else if(utente->has_pending_command & SEND_USER_LIST){
             command = SEND_USER_LIST;
             utente->has_pending_command &= ~SEND_USER_LIST;
         }else if(utente->has_pending_command & AVAILABLE_CARD){
             command = AVAILABLE_CARD;
             utente->has_pending_command &= ~AVAILABLE_CARD;
+        }else if(utente->has_pending_command & PING_USER){
+            command = PING_USER;
+            utente->has_pending_command &= ~PING_USER;
         }
 
         pthread_mutex_unlock(&utente->l2u_command_mutex);
 
         //appena mi sblocco controllo il comando che devo mandare e lo faccio
         if(command == SEND_USER_LIST) send_user_list(utente);
-        else if(command == AVAILABLE_CARD) send_available_card(utente); 
+        else if(command == AVAILABLE_CARD) send_available_card(utente);
+        else if(command == PING_USER) send_ping(utente);
 
     }
 }
 
-int hello_handler(const int u2l_sd){
+int hello_handler(int u2l_sd){
 
 
     //ricezione della porta da parte del client
-    unsigned short net_port;
-    if(recv(u2l_sd, &net_port, 2, MSG_WAITALL) < 2){
+    uint16_t net_port;
+    if(recv(u2l_sd, &net_port, sizeof(uint16_t), MSG_WAITALL) < 2){
         printf("[ERR] ERRORE NELLA RICEZIONE DELLA PORTA\n");
         return -1;
     }
 
-    unsigned short PORT = ntohs(net_port);
+    uint16_t port = ntohs(net_port);
 
     pthread_mutex_lock(&mutex_lavagna);
 
     //controllo se la porta è disponibile, se no invio disponibile = 0 al client
-    if(find_utente(PORT)){
+    if(find_utente(port)){
         
         printf("[ERR] PORTA NON DISPONIBILE\n");
         char disponibile = 0;
@@ -91,7 +99,7 @@ int hello_handler(const int u2l_sd){
     
     //creazione del socket e connessione con l'utente
     socket_t l2u_sock;
-    if(create_socket(&l2u_sock, PORT, 1) < 0){
+    if(create_socket(&l2u_sock, port, 1) < 0){
         printf("[ERR] ERRORE NELLA CREAZIONE DEL SOCKET L2U ALL'UTENTE\n");
         pthread_mutex_unlock(&mutex_lavagna);
         return -1;
@@ -103,12 +111,6 @@ int hello_handler(const int u2l_sd){
         return -1;
     }
 
-    //inserisco l'utente nella lista degli utenti registrati
-    insert_utente(PORT, u2l_sd, l2u_sock.socket);
-    
-    printf("[INFO] UTENTE CON PORTA: %d REGISTRATO\n", (int) PORT);
-    
-
     //creazione del thread che si occuperà di mandare SEND_USER_LIST e AVAILABLE_CARD all'utente
     //appena registrato
     int* thread_arg = (int*) malloc(sizeof(int));
@@ -116,11 +118,17 @@ int hello_handler(const int u2l_sd){
     pthread_t l2u_command_sending_t;
     pthread_create(&l2u_command_sending_t, NULL, l2u_command_sender, thread_arg);
 
+
+    //inserisco l'utente nella lista degli utenti registrati
+    insert_utente(port, u2l_sd, l2u_sock.socket, l2u_command_sending_t);
+    printf("[INFO] UTENTE CON PORTA: %d REGISTRATO\n", (int) port);
+    
+
     //mando il comando si SEND_USER_LIST a tutti i thread 
     wakeup_command_senders(SEND_USER_LIST);
 
     //se gli utenti sono 2 o più, c'è una card in TODO e nessun utente sta lavorando su una card si manda la card disponibile
-    if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL && !lavagna.working)
+    if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL && lavagna.state == NONE)
         wakeup_command_senders(AVAILABLE_CARD);
     
     pthread_mutex_unlock(&mutex_lavagna);
@@ -129,7 +137,7 @@ int hello_handler(const int u2l_sd){
 }
 
 
-int create_card_handler(const int sd){
+int create_card_handler(int sd){
 
     char dati[106];
     
@@ -140,9 +148,9 @@ int create_card_handler(const int sd){
     }
 
     //deserializzazione dei dati della card
-    int net_id;
+    uint32_t net_id;
     memcpy(&net_id, dati, 4);
-    int id = ntohl(net_id);
+    uint32_t id = ntohl(net_id);
     
     char testo[101];
     memcpy(testo, dati + 4, 101);
@@ -153,7 +161,7 @@ int create_card_handler(const int sd){
 
     //controllo se l'ID della card è disponibile
     pthread_mutex_lock(&mutex_lavagna);
-    int found = find_card(id);
+    colonna_t found = find_card(id);
 
     //se non lo è mando al client disponibile = 0
     if(found != -1){
@@ -183,7 +191,7 @@ int create_card_handler(const int sd){
     show_lavagna();
 
     //se gli utenti sono 2 o più, c'è una card in TODO e nessun utente sta lavorando su una card si manda la card disponibile
-    if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL && !lavagna.working)
+    if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL && lavagna.state == NONE)
         wakeup_command_senders(AVAILABLE_CARD);
 
     pthread_mutex_unlock(&mutex_lavagna);
@@ -193,16 +201,16 @@ int create_card_handler(const int sd){
 
 
 
-int ack_card_handler(const int u2l_sd){
+int ack_card_handler( int u2l_sd){
 
     //ricevo l'id della card ackata
-    int net_id;
+    uint32_t net_id;
     if(recv(u2l_sd, &net_id, sizeof(int), MSG_WAITALL) < 0){
         printf("[ERR] ERRORE NELLA RICEZIONE DELL'ACKED CARD\n");
         return -1;
     }
 
-    int id = ntohl(net_id);
+    uint32_t id = ntohl(net_id);
 
     //controllo se la card è gia stata ACKATA
     pthread_mutex_lock(&mutex_lavagna);
@@ -236,6 +244,14 @@ int ack_card_handler(const int u2l_sd){
         utente = utente->nextUtente;
     }
 
+    //segnalo a tutti che la card è stata ackata e non deve essere rifatta la send_user_list e send_available_card
+    pthread_mutex_lock(&acked_card_mutex);
+    
+    card_acked = id;
+    pthread_cond_broadcast(&acked_card_cond);
+    
+    pthread_mutex_unlock(&acked_card_mutex);
+
     //muovo la card nella colonna DOING e la assegno all'utente
     card_t* work = remove_card(id);
 
@@ -243,11 +259,20 @@ int ack_card_handler(const int u2l_sd){
     time(&work->ultimaModifica);
 
     work->colonna = DOING;
+    work->portaUtente = utente->PORT;
     insert_card(work);
-
+    lavagna.state = WORKING;
     printf("[INFO] CARD %d ASSEGNATA ALL'UTENTE CON PORTA: %d\n", work->id, (int)utente->PORT);
 
     show_lavagna();
+
+    pthread_mutex_lock(&utente->l2u_command_mutex);
+    //sveglio il command sender in modo che possa mandare il ping
+    utente->has_pending_command |= PING_USER;
+    pthread_cond_broadcast(&utente->l2u_command_condition);
+    
+    pthread_mutex_unlock(&utente->l2u_command_mutex);
+
 
     pthread_mutex_unlock(&mutex_lavagna);
     return 0;
@@ -255,7 +280,7 @@ int ack_card_handler(const int u2l_sd){
 
 
 
-void card_done_handler(const int u2l_sd){
+void card_done_handler( int u2l_sd){
 
 
     pthread_mutex_lock(&mutex_lavagna);
@@ -271,17 +296,29 @@ void card_done_handler(const int u2l_sd){
     //rimozione della card da DOING e inserimento nella colonna DONE
     card_t* completed_card = remove_card(lavagna.colonne[DOING]->id);
     completed_card->colonna = DONE;
+    completed_card->portaUtente = utente->PORT;
     insert_card(completed_card);
 
     time(&completed_card->ultimaModifica);
 
-    lavagna.working = 0;
+    lavagna.state = NONE;
 
     printf("[INFO] CARD %d COMPLETATA DALL'UTENTE CON PORTA: %d\n", completed_card->id, (int) utente->PORT);
     show_lavagna();
 
+    //controllo se il command_sender è bloccato per il ping nel caso lo sveglio
+    pthread_mutex_lock(&utente->l2u_command_mutex);
+
+    if(utente->has_pending_command & WAITING_ON_PING){
+        utente->has_pending_command |= CARD_DONE_WAKE_UP;
+        pthread_cond_broadcast(&utente->l2u_command_condition);
+    }
+
+    pthread_mutex_unlock(&utente->l2u_command_mutex);
+    
     if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL)
         wakeup_command_senders(AVAILABLE_CARD);
     
     pthread_mutex_unlock(&mutex_lavagna);
+
 }

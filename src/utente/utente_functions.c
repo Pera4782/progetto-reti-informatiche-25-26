@@ -1,12 +1,14 @@
 #include "../../include/utente/utente_functions.h"
 
 
-int hello(const int sd, const unsigned short PORT){
+
+
+int hello( int sd, uint16_t PORT){
 
     if(send_command(HELLO_CMD, sd) < 0) return -1;
 
     // invio della porta
-    unsigned short net_port = htons(PORT);
+    uint16_t net_port = htons(PORT);
     if(send(sd, &net_port, 2, 0) < 2){
         printf("[ERR] ERRORE NELL'INVIO DELLA PORTA\n");
         return -1;
@@ -53,7 +55,7 @@ int hello(const int sd, const unsigned short PORT){
     return 0;
 }
 
-int create_card(const int sd, const int id, const char* testo, const colonna_t colonna){
+int create_card(int sd, uint32_t id,  char* testo,  colonna_t colonna){
 
 
     if(strlen(testo) > 100){
@@ -69,7 +71,7 @@ int create_card(const int sd, const int id, const char* testo, const colonna_t c
     
     //serializzazione dell'id
 
-    int net_id = htonl(id);
+    uint32_t net_id = htonl(id);
     memcpy(buf, &net_id, 4);
 
     //serializzazione del testo
@@ -108,15 +110,16 @@ int create_card(const int sd, const int id, const char* testo, const colonna_t c
 }
 
 
-int quit(const int sd){
+int quit( int sd){
 
     if(send_command(QUIT_CMD, sd) < 0) return -1;
-    exit(0);
+    
+    _exit(0);
 }
 
 int recv_user_list(){
 
-    int net_len = 0;
+    uint32_t net_len = 0;
     
     //ricevo la lunghezza del buffer (sizeof(short) * numUtenti)
     if(recv(l2u_socket.socket, &net_len, sizeof(int), MSG_WAITALL) < 0){
@@ -124,7 +127,7 @@ int recv_user_list(){
         return -1;
     }
 
-    int len = ntohl(net_len);
+    uint32_t len = ntohl(net_len);
 
     char buf[len];
 
@@ -137,15 +140,15 @@ int recv_user_list(){
     //rimuovo il vecchio buffer
     free(porte_utenti);
     
-    num_utenti = len / sizeof(short);
+    num_utenti = len / sizeof(uint16_t);
     //creo il nuovo buffer e lo riempio
-    porte_utenti = (short*) malloc(sizeof(short) * num_utenti);
+    porte_utenti = (uint16_t*) malloc(sizeof(uint16_t) * num_utenti);
 
     for(int i = 0; i < len; i += 2){
         
-        short net_port;
-        memcpy(&net_port, buf + i, sizeof(short));
-        short port = ntohs(net_port);
+        uint16_t net_port;
+        memcpy(&net_port, buf + i, sizeof(uint16_t));
+        uint16_t port = ntohs(net_port);
         porte_utenti[i / 2] = port;
         printf("[INFO] RICEVUTO UTENTE CON PORTA: %d\n", (int) port);
     }
@@ -166,16 +169,31 @@ int recv_available_card(){
     }
     
     //deserializzazione della card
-    int net_card_id;
-    memcpy(&net_card_id, buf, sizeof(int));
+    uint32_t net_card_id;
+    memcpy(&net_card_id, buf, sizeof(uint32_t));
     working_card.id = ntohl(net_card_id);
 
 
-    strcpy(working_card.testoAttivita, buf + sizeof(int));
+    strcpy(working_card.testoAttivita, buf + sizeof(uint32_t));
 
-    printf("[INFO] RICEVUTA CARD CON ID: %d\n       TESTO ATTIVITA: %s\n", working_card.id, working_card.testoAttivita);
+    printf("[INFO] RICEVUTA CARD CON ID: %d TESTO ATTIVITA: %s\n", working_card.id, working_card.testoAttivita);
     return 0;
 
+}
+
+
+int send_pong(){
+
+    printf("[INFO] RICEVUTO PING\n");
+
+    char pong = 0;
+    if(send(l2u_socket.socket, &pong, 1, 0) < 1){
+        printf("[ERR] ERRORE NELL'INVIO DEL PONG\n");
+        return -1;
+    }
+
+    printf("[INFO] PONG INVIATO\n");
+    return 0;
 }
 
 
@@ -251,6 +269,8 @@ int choose_user(){
 
 
     int fd_max = listener_socket.socket;
+    int recv_count = 0;
+    int sent_count = 0;
 
     for(int i = 0; i < num_utenti; ++i) {
 
@@ -276,24 +296,22 @@ int choose_user(){
         }else {
 
             close(user_sockets[i].socket);
+            sent_count ++;
             //connessione fallita
             printf("[ERR] CONNESSIONE CON L'UTENTE CON PORTA: %d FALLITA\n", (int)porte_utenti[i]);
         }  
     }
     
     //generazione del costo e serializzazione
-    int my_costo =  rand();
+    uint32_t my_costo =  rand();
     int have_min_costo = 1;
     
     char send_buffer[6];
-    int net_my_costo = htonl(my_costo);
-    short net_my_port = htons(my_port);
+    uint32_t net_my_costo = htonl(my_costo);
+    uint16_t net_my_port = htons(my_port);
 
-    memcpy(send_buffer, &net_my_port, sizeof(short));
-    memcpy(send_buffer + sizeof(short), &net_my_costo, sizeof(int));
-
-    int recv_count = 0;
-    int sent_count = 0;
+    memcpy(send_buffer, &net_my_port, sizeof(uint16_t));
+    memcpy(send_buffer + sizeof(uint16_t), &net_my_costo, sizeof(uint32_t));
 
     while(recv_count != num_utenti - 1 || sent_count != num_utenti - 1){
 
@@ -308,7 +326,7 @@ int choose_user(){
         int select_ret = select(fd_max + 1, &read_ready_set, &write_ready_set, NULL, &timeout);
 
         if(select_ret == 0){
-            printf("[ERR] TIMEOUT SCADUTO\n");
+            printf("[WRN] TIMEOUT SCADUTO\n");
             break;
         }else if(select_ret < 0){
             printf("[ERR] ERRORE NELLA SELECT\n");
@@ -319,7 +337,7 @@ int choose_user(){
                     if(i != listener_socket.socket) close(i);
                 }
             }
-            exit(1);
+            _exit(1);
         }
 
         for(int i = 0; i < fd_max + 1; ++i){
@@ -416,14 +434,14 @@ int choose_user(){
 
                         char* recv_buffer = transfer_state[i].recv_buffer;
 
-                        short net_port;
-                        int net_costo;
+                        uint16_t net_port;
+                        uint32_t net_costo;
 
                         memcpy(&net_port, recv_buffer, sizeof(short));
                         memcpy(&net_costo, recv_buffer + sizeof(short), sizeof(int));
 
-                        short port = ntohs(net_port);
-                        int costo = ntohl(net_costo);
+                        uint16_t port = ntohs(net_port);
+                        uint32_t costo = ntohl(net_costo);
 
                         if(my_costo > costo || (my_costo == costo && my_port > port)) have_min_costo = 0;
 
@@ -477,8 +495,8 @@ int choose_user(){
 
 
     //invio dell'id della card
-    int net_id = htonl(working_card.id);
-    if(send(u2l_socket.socket, &net_id, sizeof(int), 0) < sizeof(int)){
+    uint32_t net_id = htonl(working_card.id);
+    if(send(u2l_socket.socket, &net_id, sizeof(uint32_t), 0) < sizeof(int)){
         printf("[ERR] ERRORE DURANTE L'INVIO DELL'ID DELLA CARD DA ACKARE\n");
         pthread_mutex_unlock(&u2l_socket_mutex);
         return -1;

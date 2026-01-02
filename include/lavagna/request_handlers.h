@@ -8,26 +8,26 @@
  * @param sd descrittore del socket per la comunicazione con l'utente
  * @return -1 in caso di errore 0 altrimeenti
  */
-int hello_handler(const int);
+int hello_handler(int);
 
 /**
  * @brief funzione per rispondere alla richiesta di creare una card
  * @param sd descrittore del socket per la comunicazione con l'utente
  * @return -1 in caso di errore 0 altrimenti
  */
-int create_card_handler(const int);
+int create_card_handler(int);
 
 
 /**
  * @brief funzione chiamata dopo ACK_CARD che assegna la card all'utente
  * @param u2l_sd il socket u2l dell'utente a cui si vuole assegnare la card
  */
-int ack_card_handler(const int);
+int ack_card_handler(int);
 
 /**
  * @brief funzione per gestire il comando di CARD_DONE
  * @param u2l_sd il socket u2l dell'utentente che ha mandato CARD_DONE
  */
-void card_done_handler(const int);
+void card_done_handler(int);
 
 #endif

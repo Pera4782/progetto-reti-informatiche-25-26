@@ -3,6 +3,11 @@
 
 socket_t listener; //socket che sarà destinato ad accettare le richieste di comandi da parte dei client
 
+//variabili per la gestione di eventuali errori dopo il messaggio AVAILABLE_CARD
+pthread_mutex_t acked_card_mutex;
+pthread_cond_t acked_card_cond;
+uint32_t card_acked;
+
 /**
  * @brief funzione che verrà utilizzata per creare un thread per la gestione di richieste in arrivo da parte dei client
  * @param arg argomento del thread contente un puntatore al descrittore del socket della connessione con il client
@@ -17,7 +22,7 @@ static void* request_handler(void* arg){
     while(quitted == 0){
 
         //ricezione del comando inviato dal client
-        char command = recv_command(u2l_sd);
+        int command = recv_command(u2l_sd);
         if(command == -1) break;
         
         //scelta dell'azione da eseguire in relazione al comando ricevuto
@@ -52,20 +57,35 @@ static void* request_handler(void* arg){
     utente_t* u = remove_utente(u2l_sd);
     if(u){
 
+        pthread_mutex_unlock(&mutex_lavagna);
+
+        pthread_mutex_lock(&u->l2u_command_mutex);
+        //imposto il bit corrispondente a USER_QUIT in modo che il command sender possa terminare
+        u->has_pending_command |= USER_QUITTED;
+        pthread_cond_broadcast(&u->l2u_command_condition);
+        
+        pthread_mutex_unlock(&u->l2u_command_mutex);
+        
+        //joino il command sender prima di termiare
+        pthread_join(u->command_sender, NULL);
+
+        pthread_mutex_lock(&mutex_lavagna);
+
         printf("[INFO] UTENTE CON PORTA: %d DISCONNESSO\n", (int) u->PORT);
 
         //gestione del caso dove l'utente disconnesso stava lavorando ad una card
         if(u->doingCardId != -1){
             card_t* work = remove_card(u->doingCardId);
             work->colonna = TODO;
+            work->portaUtente = 0;
             insert_card(work);
             show_lavagna();
-            lavagna.working = 0;
+            lavagna.state = NONE;
         }
 
         destroy_utente(u);
         wakeup_command_senders(SEND_USER_LIST);
-        if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL && !lavagna.working) 
+        if(lavagna.numUtenti >= 2 && lavagna.colonne[TODO] != NULL && lavagna.state == NONE) 
             wakeup_command_senders(AVAILABLE_CARD);
     }
     
@@ -87,7 +107,9 @@ static void* input_handler(void*){
         //acquisizione del comando da STDIN
         if(fgets(input, 81, stdin) == NULL){
             printf("[ERR] ERRORE NELL'ACQUISIZIONE DEL COMANDO\n");
-            exit(1);
+            destroy_lavagna();
+            close(listener.socket);
+            _exit(1);
         }
         //rimozione del newline nell'input
         input[strcspn(input, "\n")] = 0;
@@ -98,7 +120,12 @@ static void* input_handler(void*){
             show_lavagna();
             pthread_mutex_unlock(&mutex_lavagna);
         
-        }else printf("[ERR] COMANDO NON RICONOSCIUTO\n");
+        }else if(strcmp(input, "QUIT") == 0){
+            destroy_lavagna();
+            close(listener.socket);
+            _exit(1);
+        }else
+            printf("[ERR] COMANDO NON RICONOSCIUTO\n");
         
     }
 
@@ -110,7 +137,10 @@ static void* input_handler(void*){
 int main(){
 
     init_lavagna();
-
+    
+    //ignorare il segnale SIGING (CTRL + C)
+    signal(SIGINT, SIG_IGN);
+    
     show_lavagna();
 
     //creazione del thread per ricevere input da linea di comando
@@ -127,7 +157,9 @@ int main(){
         int u2l_sd = accept(listener.socket, (struct sockaddr*) &client_addr, &len);
         if(u2l_sd < 0){
             printf("[ERR] ERRORE SULLA ACCEPT\n");
-            exit(1);
+            destroy_lavagna();
+            close(listener.socket);
+            _exit(1);
         }
 
         int* thread_u2l_sd = (int*) malloc(sizeof(int));
@@ -137,7 +169,9 @@ int main(){
         pthread_t request_handling_t;
         if(pthread_create(&request_handling_t, NULL, request_handler, thread_u2l_sd) != 0){
             printf("[ERR] ERRORE NELLA CREAZIONE DEL THREAD DI GESTIONE\n");
-            exit(1);
+            destroy_lavagna();
+            close(listener.socket);
+            _exit(1);
         }
     }
 

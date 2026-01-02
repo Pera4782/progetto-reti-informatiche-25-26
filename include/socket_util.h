@@ -21,7 +21,7 @@
  * @param block 1 se si vuole creare un socket bloccante 0 altrimenti
  * @return -1 in caso di fallimento
  */
-int create_socket(socket_t*, const unsigned short, const int);
+int create_socket(socket_t*, uint16_t, int);
 
 
 /**
@@ -31,7 +31,7 @@ int create_socket(socket_t*, const unsigned short, const int);
  * @param block 1 se si vuole creare un socket bloccante 0 altrimenti
  * @return -1 in caso di errore 0 altrimenti
  */
-int prepare_listener_socket(socket_t*,const unsigned short, const int block);
+int prepare_listener_socket(socket_t*,  uint16_t, int);
 
 /**
  * @brief funzione che fa la connessione di un socket
@@ -44,9 +44,9 @@ int socket_connect(socket_t*);
 /**
  * @brief funzione per ottenere un comando su un socket 
  * @param sd descrittore del socket per la comunicazione
- * @return il comando inviato dall'utente 0xFF in caso di errore
+ * @return il comando inviato dall'utente -1 in caso di errore
  */
-char recv_command(int sd);
+int recv_command(int);
 
 /**
  * @brief funzione per mandare un comando su un socket
@@ -54,7 +54,7 @@ char recv_command(int sd);
  * @param sd descrittore del socket per la comunicazione
  * @return -1 in caso di errore 0 altrimenti
  */
-int send_command(const char command, const int sd);
+int send_command(char, int);
 
 
 #endif

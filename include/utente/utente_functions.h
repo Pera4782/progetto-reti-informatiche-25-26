@@ -13,17 +13,6 @@
 #include <signal.h>
 #include <time.h>
 
-/*
-
-OGNI primo messaggio che il client invia al server avrà il solo scopo di informare il server dell'azione che si vuole compiere,
-esso sarà 1 byte da interpretare come intero, il client poi aspetterà un "ACK" (1 byte) da parte del server per procedere al passaggio dei dati, 
-i valori assegnati al primo byte inviato hanno i seguenti significati:
-
-    - 0 richiesta di HELLO da parte di un client (HELLO)
-    - 1 richiesta di creazzione di una card (CREATE_CARD)
-    - 2 richiesta di disconnessione (QUIT)
-
-*/
 
 extern socket_t u2l_socket;
 extern pthread_mutex_t u2l_socket_mutex;
@@ -31,9 +20,9 @@ extern pthread_mutex_t u2l_socket_mutex;
 extern socket_t listener_socket;
 extern socket_t l2u_socket;
 
-extern short* porte_utenti;
-extern int num_utenti;
-extern short my_port;
+extern uint16_t* porte_utenti;
+extern uint32_t num_utenti;
+extern uint16_t my_port;
 
 extern card_t working_card;
 
@@ -43,7 +32,7 @@ extern card_t working_card;
  * @param PORT porta dell'utente da comunicare alla lavagna
  * @return -1 in caso di errore 0 altrimenti
  */
-int hello(const int, const unsigned short);
+int hello(int, uint16_t);
 
 /**
  * @brief funzione per fare richiesta di creare una card
@@ -53,7 +42,7 @@ int hello(const int, const unsigned short);
  * @param colonna colonna in cui verrà inserita la card
  * @return -1 in caso di errore 0 altrimenti
  */
-int create_card(const int, const int, const char*, const colonna_t);
+int create_card(int, uint32_t,  char*,  colonna_t);
 
 
 /**
@@ -61,7 +50,7 @@ int create_card(const int, const int, const char*, const colonna_t);
  * @param sd descrittore del socket locale
  * @return -1 in caso di errore 0 altrimenti 
  */
-int quit(const int);
+int quit( int);
 
 /**
  * @brief funzione per ricevere la lista degli utenti dalla lavagna
@@ -74,6 +63,12 @@ int recv_user_list();
  * @return -1 in caso di errore 0 altrimenti
  */
 int recv_available_card();
+
+/**
+ * @brief manda il pong alla lavagna
+ * @return -1 in caso di errore 0 altrimenti
+ */
+int send_pong();
 
 /**
  * @brief funzione per scambiare il messaggio CHOOSE_USER
