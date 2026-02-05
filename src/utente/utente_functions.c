@@ -101,7 +101,7 @@ int create_card(int sd, uint32_t id,  char* testo,  colonna_t colonna){
 
     if(!disponibile) {
         printf("[ERR] ID NON DISPONIBILE\n");
-        return -1;
+        return 0;
     }
 
     printf("[INFO] CARD CREATA CON SUCCESSO\n");
